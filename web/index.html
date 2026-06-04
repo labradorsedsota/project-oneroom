@@ -189,19 +189,39 @@
             if (player.x < 0) player.x = 0;
             if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
-            // Button collision
-            const playerRect = { x: player.x, y: player.y, width: player.width, height: player.height };
-            const buttonRect = { x: button.x, y: button.y, width: button.width, height: button.height };
+            // Button collision - must land from above
+            const playerBottom = player.y + player.height;
+            const playerCenterX = player.x + player.width / 2;
+            const buttonTop = button.y;
+            const buttonLeft = button.x;
+            const buttonRight = button.x + button.width;
             
-            if (rectCollision(playerRect, buttonRect) && player.y + player.height <= button.y + 10) {
+            // Check: player is horizontally over the button AND falling onto it
+            const isOverButton = playerCenterX > buttonLeft && playerCenterX < buttonRight;
+            const isLandingOnButton = isOverButton && 
+                                       playerBottom >= buttonTop && 
+                                       playerBottom <= buttonTop + 12 && 
+                                       player.vy >= 0; // must be falling
+            
+            if (isLandingOnButton) {
                 if (!button.activated) {
                     button.pressed = true;
                     button.activated = true;
                     door.open = true;
+                    // Snap player onto button
+                    player.y = buttonTop - player.height;
+                    player.vy = 0;
+                    player.onGround = true;
                     console.log('Button activated! Door opening...');
+                } else {
+                    // Already activated, just stand on it
+                    player.y = buttonTop - player.height;
+                    player.vy = 0;
+                    player.onGround = true;
+                    button.pressed = true;
                 }
             } else {
-                button.pressed = false;
+                button.pressed = button.activated; // keep pressed look if activated
             }
 
             // Door animation
@@ -209,6 +229,9 @@
                 door.openProgress += 0.02;
                 if (door.openProgress > 1) door.openProgress = 1;
             }
+
+            // Player rect for other collisions
+            const playerRect = { x: player.x, y: player.y, width: player.width, height: player.height };
 
             // Door collision (only when not fully open)
             if (door.openProgress < 0.9) {
