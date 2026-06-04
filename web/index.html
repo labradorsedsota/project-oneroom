@@ -1526,29 +1526,24 @@
                     ctx.stroke();
                 });
 
-                // Door glow (always visible)
-                const doorGlow = ctx.createRadialGradient(
-                    dr.x + dr.width / 2, dr.y + dr.height / 2, 0,
-                    dr.x + dr.width / 2, dr.y + dr.height / 2, 60
-                );
-                doorGlow.addColorStop(0, dr.open ? 'rgba(74, 222, 128, 0.5)' : 'rgba(156, 163, 175, 0.35)');
-                doorGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                ctx.fillStyle = doorGlow;
-                ctx.fillRect(dr.x - 60, dr.y - 60, dr.width + 120, dr.height + 120);
-
-                // Door
-                if (dr.openProgress < 1) {
-                    const so = dr.height * dr.openProgress;
-                    ctx.fillStyle = dr.open ? '#4ade80' : '#6b7280';
-                    ctx.fillRect(dr.x, dr.y - so, dr.width, dr.height);
+                // Door glow only (no rectangle)
+                const doorCx = dr.x + dr.width / 2, doorCy = dr.y + dr.height / 2;
+                const glowR = 60 + Math.sin(Date.now() / 300) * 5;
+                const doorGlow = ctx.createRadialGradient(doorCx, doorCy, 0, doorCx, doorCy, glowR);
+                if (dr.open) {
+                    doorGlow.addColorStop(0, 'rgba(74, 222, 128, 0.6)');
+                    doorGlow.addColorStop(0.4, 'rgba(74, 222, 128, 0.3)');
+                    doorGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                } else {
+                    doorGlow.addColorStop(0, 'rgba(156, 163, 175, 0.4)');
+                    doorGlow.addColorStop(0.4, 'rgba(156, 163, 175, 0.15)');
+                    doorGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
                 }
-                ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 2;
-                ctx.strokeRect(dr.x - 4, dr.y - 4, dr.width + 8, dr.height + 8);
+                ctx.fillStyle = doorGlow;
+                ctx.fillRect(doorCx - glowR, doorCy - glowR, glowR * 2, glowR * 2);
                 if (dr.open && dr.openProgress >= 0.9) {
-                    const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.5;
-                    ctx.fillStyle = `rgba(74,222,128,${pulse})`; ctx.fillRect(dr.x - 8, dr.y, dr.width + 16, dr.height);
                     ctx.fillStyle = '#fff'; ctx.font = '24px Arial'; ctx.textAlign = 'center';
-                    ctx.fillText('→', dr.x + dr.width / 2, dr.y + dr.height / 2 + 8);
+                    ctx.fillText('→', doorCx, doorCy + 8);
                 }
 
                 // Button (faintly visible when in glow range)
