@@ -864,6 +864,165 @@
 
                 ctx.restore();
             }
+        },
+
+        // --- L7: Anti-Gravity ---
+        {
+            name: 'L7: Anti-Gravity',
+            hint: 'Upside Down',
+            controls: 'A/D: Move | Space: Jump (downward!) | R: Restart',
+            init() {
+                const CEILING_Y = 100;
+                return {
+                    player: { x: 200, y: CEILING_Y, vx: 0, vy: 0, width: 32, height: 48, speed: 4, jumpForce: 12, onGround: false, onCeiling: true, color: '#3b82f6' },
+                    button: { x: 616, y: CEILING_Y + 48, width: 48, height: 16, pressed: false, activated: false },
+                    door: { x: 892, y: CEILING_Y, width: 16, height: 96, open: false, openProgress: 0 },
+                    ceilingY: CEILING_Y,
+                    particles: [],
+                    flipped: false
+                };
+            },
+            update(d) {
+                const p = d.player, b = d.button, dr = d.door;
+                const CEIL = d.ceilingY;
+
+                // Flip gravity on entry
+                if (!d.flipped) {
+                    d.flipped = true;
+                    p.y = CEIL;
+                    p.onCeiling = true;
+                    p.onGround = false;
+                }
+
+                // Anti-gravity: pulls UP
+                p.vy -= GRAVITY;
+
+                // Movement (left/right stays normal)
+                if (keys['a'] || keys['arrowleft']) p.vx = -p.speed;
+                else if (keys['d'] || keys['arrowright']) p.vx = p.speed;
+                else { p.vx *= 0.8; if (Math.abs(p.vx) < 0.1) p.vx = 0; }
+
+                // Jump pushes DOWN (away from ceiling)
+                if ((keys[' '] || keys['w']) && p.onCeiling) {
+                    p.vy = p.jumpForce; // positive = downward
+                    p.onCeiling = false;
+                }
+
+                p.x += p.vx; p.y += p.vy;
+
+                // Ceiling collision (stick to top)
+                if (p.y <= CEIL) {
+                    p.y = CEIL;
+                    p.vy = 0;
+                    p.onCeiling = true;
+                }
+
+                // Floor collision (don't fall through)
+                if (p.y + p.height >= GROUND_Y) {
+                    p.y = GROUND_Y - p.height;
+                    p.vy = 0;
+                    p.onGround = true;
+                    // Bounce back up slightly
+                    if (p.onGround && !p.onCeiling) {
+                        p.vy = -2;
+                    }
+                }
+
+                if (p.x < 0) p.x = 0;
+                if (p.x + p.width > canvas.width) p.x = canvas.width - p.width;
+
+                // Dust particles floating UP
+                if (Math.random() < 0.05) {
+                    d.particles.push({ x: Math.random() * canvas.width, y: GROUND_Y, vy: -0.5 - Math.random(), life: 1 });
+                }
+                d.particles = d.particles.filter(pt => {
+                    pt.y += pt.vy; pt.life -= 0.005;
+                    return pt.life > 0;
+                });
+
+                // Button collision (on ceiling)
+                const pB = p.y + p.height, pT = p.y, pR = p.x + p.width, pL = p.x;
+                const bT = b.y, bB = b.y + b.height, bL = b.x, bR = b.x + b.width;
+                const ox = pR > bL && pL < bR, oy = pB > bT && pT < bB;
+                if (ox && oy) {
+                    const oL = pR - bL, oR = bR - pL, oT = pB - bT, oB = bB - pT;
+                    const mx = Math.min(oL, oR), my = Math.min(oT, oB);
+                    if (my < mx) {
+                        if (oB < oT && p.vy <= 0) {
+                            // Player hits button from below (ceiling perspective)
+                            p.y = bB; p.vy = 0; b.pressed = true;
+                            if (!b.activated) { b.activated = true; dr.open = true; }
+                        } else if (oT < oB && p.vy >= 0) {
+                            p.y = bT - p.height; p.vy = 0;
+                        }
+                    } else {
+                        if (oL < oR) p.x = bL - p.width; else p.x = bR;
+                        p.vx = 0;
+                    }
+                } else { b.pressed = b.activated; }
+
+                // Door
+                if (dr.open && dr.openProgress < 1) { dr.openProgress += 0.02; if (dr.openProgress > 1) dr.openProgress = 1; }
+                const pr = { x: p.x, y: p.y, width: p.width, height: p.height };
+                if (dr.openProgress < 0.9) {
+                    const dRect = { x: dr.x, y: dr.y, width: dr.width, height: dr.height * (1 - dr.openProgress) };
+                    if (rectCollision(pr, dRect)) {
+                        if (p.vx > 0) p.x = dRect.x - p.width; else if (p.vx < 0) p.x = dRect.x + dRect.width;
+                        p.vx = 0;
+                    }
+                }
+                if (dr.open && dr.openProgress >= 0.9) {
+                    if (rectCollision(pr, { x: dr.x - 16, y: dr.y, width: dr.width + 32, height: dr.height })) return 'complete';
+                }
+                return null;
+            },
+            draw(d) {
+                const p = d.player, b = d.button, dr = d.door;
+                const CEIL = d.ceilingY;
+
+                // Ceiling line
+                ctx.fillStyle = '#374151';
+                ctx.fillRect(0, CEIL - 16, canvas.width, 16);
+
+                // Dust particles floating up
+                d.particles.forEach(pt => {
+                    ctx.fillStyle = `rgba(156,163,175,${pt.life * 0.3})`;
+                    ctx.fillRect(pt.x - 1, pt.y - 1, 2, 2);
+                });
+
+                // Button (on ceiling, hangs down)
+                ctx.fillStyle = b.activated ? '#ef4444' : '#fbbf24';
+                const by = b.pressed ? b.y - 4 : b.y;
+                const bh = b.pressed ? b.height - 4 : b.height;
+                ctx.fillRect(b.x, by, b.width, bh);
+                ctx.fillStyle = '#4b5563'; ctx.fillRect(b.x - 4, CEIL, b.width + 8, 4);
+                if (b.activated) { ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 15; ctx.fillRect(b.x, by, b.width, bh); ctx.shadowBlur = 0; }
+
+                // Door (on ceiling, slides down to open)
+                if (dr.openProgress < 1) {
+                    const so = dr.height * dr.openProgress;
+                    ctx.fillStyle = dr.open ? '#4ade80' : '#6b7280';
+                    ctx.fillRect(dr.x, dr.y + so, dr.width, dr.height);
+                }
+                ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 2;
+                ctx.strokeRect(dr.x - 4, dr.y - 4, dr.width + 8, dr.height + 8);
+                if (dr.open && dr.openProgress >= 0.9) {
+                    const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.5;
+                    ctx.fillStyle = `rgba(74,222,128,${pulse})`; ctx.fillRect(dr.x - 8, dr.y, dr.width + 16, dr.height);
+                    ctx.fillStyle = '#fff'; ctx.font = '24px Arial'; ctx.textAlign = 'center';
+                    ctx.fillText('→', dr.x + dr.width / 2, dr.y + dr.height / 2 + 8);
+                }
+
+                // Player (upside down - draw flipped)
+                ctx.save();
+                ctx.translate(p.x + p.width / 2, p.y + p.height / 2);
+                ctx.scale(1, -1); // flip vertically
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.width / 2, -p.height / 2, p.width, p.height);
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(p.vx > 0 ? 8 : -14, -p.height / 2 + 12, 6, 6);
+                ctx.restore();
+            }
         }
     ];
 
