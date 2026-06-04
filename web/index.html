@@ -466,15 +466,24 @@
         buildNav();
     }
 
+    function isUnlocked(index) {
+        if (index === 0) return true;
+        return completedLevels.has(index - 1);
+    }
+
     function buildNav() {
         navEl.innerHTML = '';
         LEVELS.forEach((level, i) => {
             const btn = document.createElement('button');
             btn.className = 'nav-btn';
+            const unlocked = isUnlocked(i);
             if (i === currentLevel) btn.classList.add('active');
             else if (completedLevels.has(i)) btn.classList.add('completed');
-            btn.textContent = (completedLevels.has(i) ? '✓ ' : '') + `L${i + 1}`;
-            btn.onclick = () => loadLevel(i);
+            else if (!unlocked) btn.classList.add('locked');
+            btn.textContent = !unlocked ? `🔒 L${i + 1}` : (completedLevels.has(i) ? '✓ ' : '') + `L${i + 1}`;
+            if (unlocked) {
+                btn.onclick = () => loadLevel(i);
+            }
             navEl.appendChild(btn);
         });
     }
