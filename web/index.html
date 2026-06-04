@@ -3,13 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project OneRoom - L1: The Button</title>
+    <title>Project OneRoom</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: #1a1a2e;
             display: flex;
@@ -20,9 +16,7 @@
             font-family: 'Courier New', monospace;
             color: #eee;
         }
-        #game-container {
-            position: relative;
-        }
+        #game-container { position: relative; }
         canvas {
             border: 2px solid #444;
             background: #16213e;
@@ -36,333 +30,490 @@
             font-size: 24px;
             color: #ffd700;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            pointer-events: none;
         }
-        #level-info {
-            margin-top: 20px;
-            font-size: 14px;
-            color: #888;
-        }
-        #controls {
-            margin-top: 10px;
-            font-size: 12px;
-            color: #666;
-        }
-        #message {
+        #overlay {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 32px;
-            color: #4ade80;
-            text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+            top: 0; left: 0; right: 0; bottom: 0;
             display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.6);
+            z-index: 10;
         }
+        #overlay.show { display: flex; }
+        #overlay-text {
+            font-size: 32px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+        }
+        #overlay-btn {
+            padding: 12px 32px;
+            font-size: 18px;
+            font-family: 'Courier New', monospace;
+            background: transparent;
+            color: #4ade80;
+            border: 2px solid #4ade80;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #overlay-btn:hover {
+            background: #4ade80;
+            color: #1a1a2e;
+        }
+        #overlay-btn.restart {
+            color: #ef4444;
+            border-color: #ef4444;
+        }
+        #overlay-btn.restart:hover {
+            background: #ef4444;
+            color: #fff;
+        }
+        #level-info { margin-top: 20px; font-size: 14px; color: #888; }
+        #controls { margin-top: 10px; font-size: 12px; color: #666; }
+        #nav {
+            margin-top: 15px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .nav-btn {
+            padding: 6px 16px;
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+            background: transparent;
+            color: #888;
+            border: 1px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover { color: #fff; border-color: #888; }
+        .nav-btn.active { color: #4ade80; border-color: #4ade80; }
+        .nav-btn.completed { color: #4ade80; border-color: #2d6a4f; }
+        .nav-btn.locked { color: #444; border-color: #333; cursor: not-allowed; }
     </style>
 </head>
 <body>
     <div id="game-container">
         <canvas id="game" width="1280" height="720"></canvas>
-        <div id="hint">Under Pressure</div>
-        <div id="message">Level Complete!</div>
+        <div id="hint"></div>
+        <div id="overlay">
+            <div id="overlay-text"></div>
+            <button id="overlay-btn"></button>
+        </div>
     </div>
-    <div id="level-info">L1: The Button</div>
-    <div id="controls">A/D: Move | Space: Jump</div>
-    <div id="nav" style="margin-top:15px;display:flex;gap:10px;">
-        <a href="index.html" style="color:#4ade80;text-decoration:none;padding:5px 15px;border:1px solid #4ade80;border-radius:4px;font-size:13px;">L1</a>
-        <a href="L2.html" style="color:#888;text-decoration:none;padding:5px 15px;border:1px solid #444;border-radius:4px;font-size:13px;">L2</a>
-        <a href="L3.html" style="color:#888;text-decoration:none;padding:5px 15px;border:1px solid #444;border-radius:4px;font-size:13px;">L3</a>
-    </div>
+    <div id="level-info"></div>
+    <div id="controls"></div>
+    <div id="nav"></div>
 
     <script>
-        const canvas = document.getElementById('game');
-        const ctx = canvas.getContext('2d');
-        const message = document.getElementById('message');
+    // ============================================================
+    // ENGINE
+    // ============================================================
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const hintEl = document.getElementById('hint');
+    const overlayEl = document.getElementById('overlay');
+    const overlayText = document.getElementById('overlay-text');
+    const overlayBtn = document.getElementById('overlay-btn');
+    const levelInfoEl = document.getElementById('level-info');
+    const controlsEl = document.getElementById('controls');
+    const navEl = document.getElementById('nav');
 
-        // Game constants
-        const GRAVITY = 0.5;
-        const GROUND_Y = 500;
-        const PLAYER_WIDTH = 32;
-        const PLAYER_HEIGHT = 48;
-        const BUTTON_WIDTH = 48;
-        const BUTTON_HEIGHT = 16;
-        const DOOR_WIDTH = 16;
-        const DOOR_HEIGHT = 96;
+    const GRAVITY = 0.5;
+    const GROUND_Y = 500;
 
-        // Game state
-        let gameState = 'playing'; // playing, complete
+    // Global state
+    let currentLevel = 0;
+    let gameState = 'playing';
+    let completedLevels = new Set();
+    let keys = {};
+    let levelData = {};
 
-        // Player
-        const player = {
-            x: 200,
-            y: GROUND_Y - PLAYER_HEIGHT,
-            vx: 0,
-            vy: 0,
-            width: PLAYER_WIDTH,
-            height: PLAYER_HEIGHT,
-            speed: 5,
-            jumpForce: -12,
-            onGround: false,
-            color: '#3b82f6'
-        };
+    // Input
+    document.addEventListener('keydown', (e) => {
+        keys[e.key.toLowerCase()] = true;
+        if (e.key === ' ') e.preventDefault();
+        if (e.key.toLowerCase() === 'r') restartLevel();
+    });
+    document.addEventListener('keyup', (e) => {
+        keys[e.key.toLowerCase()] = false;
+    });
 
-        // Button
-        const button = {
-            x: 640 - BUTTON_WIDTH / 2,
-            y: GROUND_Y - BUTTON_HEIGHT,
-            width: BUTTON_WIDTH,
-            height: BUTTON_HEIGHT,
-            pressed: false,
-            activated: false,
-            color: '#fbbf24',
-            activeColor: '#ef4444'
-        };
+    function rectCollision(a, b) {
+        return a.x < b.x + b.width && a.x + a.width > b.x &&
+               a.y < b.y + b.height && a.y + a.height > b.y;
+    }
 
-        // Door
-        const door = {
-            x: 900 - DOOR_WIDTH / 2,
-            y: GROUND_Y - DOOR_HEIGHT,
-            width: DOOR_WIDTH,
-            height: DOOR_HEIGHT,
-            open: false,
-            openProgress: 0, // 0 = closed, 1 = fully open
-            color: '#6b7280',
-            openColor: '#4ade80'
-        };
+    function showOverlay(text, color, btnText, btnClass, callback) {
+        overlayText.textContent = text;
+        overlayText.style.color = color;
+        overlayBtn.textContent = btnText;
+        overlayBtn.className = btnClass || '';
+        overlayBtn.onclick = callback;
+        overlayEl.classList.add('show');
+    }
 
-        // Goal trigger
-        const goal = {
-            x: 1000 - 16,
-            y: GROUND_Y - 96,
-            width: 32,
-            height: 96,
-            triggered: false
-        };
+    function hideOverlay() {
+        overlayEl.classList.remove('show');
+    }
 
-        // Input
-        const keys = {};
-        document.addEventListener('keydown', (e) => {
-            keys[e.key.toLowerCase()] = true;
-            if (e.key === ' ') e.preventDefault();
-        });
-        document.addEventListener('keyup', (e) => {
-            keys[e.key.toLowerCase()] = false;
-        });
+    function restartLevel() {
+        hideOverlay();
+        loadLevel(currentLevel);
+    }
 
-        // Collision detection
-        function rectCollision(a, b) {
-            return a.x < b.x + b.width &&
-                   a.x + a.width > b.x &&
-                   a.y < b.y + b.height &&
-                   a.y + a.height > b.y;
+    function nextLevel() {
+        hideOverlay();
+        if (currentLevel + 1 < LEVELS.length) {
+            loadLevel(currentLevel + 1);
         }
+    }
 
-        // Update game
-        function update() {
-            if (gameState !== 'playing') return;
-
-            // Horizontal movement
-            if (keys['a'] || keys['arrowleft']) {
-                player.vx = -player.speed;
-            } else if (keys['d'] || keys['arrowright']) {
-                player.vx = player.speed;
-            } else {
-                player.vx *= 0.8;
-                if (Math.abs(player.vx) < 0.1) player.vx = 0;
-            }
-
-            // Jump
-            if ((keys[' '] || keys['w'] || keys['arrowup']) && player.onGround) {
-                player.vy = player.jumpForce;
-                player.onGround = false;
-            }
-
-            // Apply gravity
-            player.vy += GRAVITY;
-
-            // Update position
-            player.x += player.vx;
-            player.y += player.vy;
-
-            // Ground collision
-            if (player.y + player.height >= GROUND_Y) {
-                player.y = GROUND_Y - player.height;
-                player.vy = 0;
-                player.onGround = true;
-            }
-
-            // Keep player in bounds
-            if (player.x < 0) player.x = 0;
-            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
-
-            // Button collision - solid obstacle, must jump onto it
-            const playerBottom = player.y + player.height;
-            const playerTop = player.y;
-            const playerRight = player.x + player.width;
-            const playerLeft = player.x;
-            const buttonTop = button.y;
-            const buttonBottom = button.y + button.height;
-            const buttonLeft = button.x;
-            const buttonRight = button.x + button.width;
-            
-            // Check overlap
-            const overlapX = playerRight > buttonLeft && playerLeft < buttonRight;
-            const overlapY = playerBottom > buttonTop && playerTop < buttonBottom;
-            
-            if (overlapX && overlapY) {
-                // Determine collision direction
-                const overlapFromLeft = playerRight - buttonLeft;
-                const overlapFromRight = buttonRight - playerLeft;
-                const overlapFromTop = playerBottom - buttonTop;
-                const overlapFromBottom = buttonBottom - playerTop;
-                
-                const minOverlapX = Math.min(overlapFromLeft, overlapFromRight);
-                const minOverlapY = Math.min(overlapFromTop, overlapFromBottom);
-                
-                if (minOverlapY < minOverlapX) {
-                    // Vertical collision
-                    if (overlapFromTop < overlapFromBottom && player.vy >= 0) {
-                        // Landing on top of button
-                        player.y = buttonTop - player.height;
-                        player.vy = 0;
-                        player.onGround = true;
-                        button.pressed = true;
-                        if (!button.activated) {
-                            button.activated = true;
-                            door.open = true;
-                            console.log('Button activated! Door opening...');
-                        }
-                    } else if (overlapFromBottom < overlapFromTop) {
-                        // Hit from below
-                        player.y = buttonBottom;
-                        player.vy = 0;
-                    }
-                } else {
-                    // Horizontal collision - block movement
-                    if (overlapFromLeft < overlapFromRight) {
-                        player.x = buttonLeft - player.width;
-                    } else {
-                        player.x = buttonRight;
-                    }
-                    player.vx = 0;
-                }
-            } else {
-                button.pressed = button.activated;
-            }
-
-            // Door animation
-            if (door.open && door.openProgress < 1) {
-                door.openProgress += 0.02;
-                if (door.openProgress > 1) door.openProgress = 1;
-            }
-
-            // Player rect for other collisions
-            const playerRect = { x: player.x, y: player.y, width: player.width, height: player.height };
-
-            // Door collision (only when not fully open)
-            if (door.openProgress < 0.9) {
-                const doorRect = { 
-                    x: door.x, 
-                    y: door.y + (door.height * door.openProgress), 
-                    width: door.width, 
-                    height: door.height * (1 - door.openProgress) 
+    // ============================================================
+    // LEVEL DEFINITIONS
+    // ============================================================
+    const LEVELS = [
+        // --- L1: The Button ---
+        {
+            name: 'L1: The Button',
+            hint: 'Under Pressure',
+            controls: 'A/D: Move | Space: Jump | R: Restart',
+            init() {
+                return {
+                    player: { x: 200, y: GROUND_Y - 48, vx: 0, vy: 0, width: 32, height: 48, speed: 5, jumpForce: -12, onGround: false, color: '#3b82f6' },
+                    button: { x: 616, y: GROUND_Y - 16, width: 48, height: 16, pressed: false, activated: false },
+                    door: { x: 892, y: GROUND_Y - 96, width: 16, height: 96, open: false, openProgress: 0 }
                 };
-                if (rectCollision(playerRect, doorRect)) {
-                    // Push player back
-                    if (player.vx > 0) {
-                        player.x = doorRect.x - player.width;
-                    } else if (player.vx < 0) {
-                        player.x = doorRect.x + doorRect.width;
+            },
+            update(d) {
+                const p = d.player, b = d.button, dr = d.door;
+                // Movement
+                if (keys['a'] || keys['arrowleft']) p.vx = -p.speed;
+                else if (keys['d'] || keys['arrowright']) p.vx = p.speed;
+                else { p.vx *= 0.8; if (Math.abs(p.vx) < 0.1) p.vx = 0; }
+                if ((keys[' '] || keys['w']) && p.onGround) { p.vy = p.jumpForce; p.onGround = false; }
+                p.vy += GRAVITY; p.x += p.vx; p.y += p.vy;
+                if (p.y + p.height >= GROUND_Y) { p.y = GROUND_Y - p.height; p.vy = 0; p.onGround = true; }
+                if (p.x < 0) p.x = 0;
+                if (p.x + p.width > canvas.width) p.x = canvas.width - p.width;
+
+                // Button collision
+                const pB = p.y + p.height, pT = p.y, pR = p.x + p.width, pL = p.x;
+                const bT = b.y, bB = b.y + b.height, bL = b.x, bR = b.x + b.width;
+                const ox = pR > bL && pL < bR, oy = pB > bT && pT < bB;
+                if (ox && oy) {
+                    const oL = pR - bL, oR = bR - pL, oT = pB - bT, oB = bB - pT;
+                    const mx = Math.min(oL, oR), my = Math.min(oT, oB);
+                    if (my < mx) {
+                        if (oT < oB && p.vy >= 0) {
+                            p.y = bT - p.height; p.vy = 0; p.onGround = true; b.pressed = true;
+                            if (!b.activated) { b.activated = true; dr.open = true; }
+                        } else if (oB < oT) { p.y = bB; p.vy = 0; }
+                    } else {
+                        if (oL < oR) p.x = bL - p.width; else p.x = bR;
+                        p.vx = 0;
                     }
-                    player.vx = 0;
+                } else { b.pressed = b.activated; }
+
+                // Door
+                if (dr.open && dr.openProgress < 1) { dr.openProgress += 0.02; if (dr.openProgress > 1) dr.openProgress = 1; }
+                const pr = { x: p.x, y: p.y, width: p.width, height: p.height };
+                if (dr.openProgress < 0.9) {
+                    const dRect = { x: dr.x, y: dr.y + dr.height * dr.openProgress, width: dr.width, height: dr.height * (1 - dr.openProgress) };
+                    if (rectCollision(pr, dRect)) {
+                        if (p.vx > 0) p.x = dRect.x - p.width; else if (p.vx < 0) p.x = dRect.x + dRect.width;
+                        p.vx = 0;
+                    }
                 }
-            }
-
-            // Goal collision - player must reach the door position after it opens
-            if (!goal.triggered && door.openProgress >= 0.9) {
-                const goalRect = { x: door.x - 16, y: door.y, width: door.width + 32, height: door.height };
-                if (rectCollision(playerRect, goalRect)) {
-                    goal.triggered = true;
-                    gameState = 'complete';
-                    message.style.display = 'block';
-                    console.log('Level complete!');
+                if (dr.open && dr.openProgress >= 0.9) {
+                    if (rectCollision(pr, { x: dr.x - 16, y: dr.y, width: dr.width + 32, height: dr.height })) return 'complete';
                 }
-            }
-        }
-
-        // Draw game
-        function draw() {
-            // Clear
-            ctx.fillStyle = '#16213e';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Ground
-            ctx.fillStyle = '#374151';
-            ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
-
-            // Button - flat pedal style
-            ctx.fillStyle = button.activated ? button.activeColor : button.color;
-            const buttonY = button.pressed ? button.y + 4 : button.y;
-            const buttonH = button.pressed ? button.height - 4 : button.height;
-            ctx.fillRect(button.x, buttonY, button.width, buttonH);
-            
-            // Button base/pedestal
-            ctx.fillStyle = '#4b5563';
-            ctx.fillRect(button.x - 4, button.y + button.height, button.width + 8, 4);
-            
-            // Button glow when activated
-            if (button.activated) {
-                ctx.shadowColor = button.activeColor;
-                ctx.shadowBlur = 15;
-                ctx.fillStyle = button.activeColor;
-                ctx.fillRect(button.x, buttonY, button.width, buttonH);
-                ctx.shadowBlur = 0;
-            }
-
-            // Door - slides up to open
-            if (door.openProgress < 1) {
-                const slideOffset = door.height * door.openProgress;
-                ctx.fillStyle = door.open ? door.openColor : door.color;
-                ctx.fillRect(door.x, door.y - slideOffset, door.width, door.height);
-            }
-            
-            // Door frame (always visible)
-            ctx.strokeStyle = '#9ca3af';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(door.x - 4, door.y - 4, door.width + 8, door.height + 8);
-
-            // Goal trigger - glowing exit zone at door position
-            if (door.openProgress >= 0.9) {
-                // Pulsing glow effect
-                const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.5;
-                ctx.fillStyle = `rgba(74, 222, 128, ${pulse})`;
-                ctx.fillRect(door.x - 8, door.y, door.width + 16, door.height);
-                
-                // Exit arrow
+                return null;
+            },
+            draw(d) {
+                const p = d.player, b = d.button, dr = d.door;
+                // Button
+                ctx.fillStyle = b.activated ? '#ef4444' : '#fbbf24';
+                const by = b.pressed ? b.y + 4 : b.y, bh = b.pressed ? b.height - 4 : b.height;
+                ctx.fillRect(b.x, by, b.width, bh);
+                ctx.fillStyle = '#4b5563'; ctx.fillRect(b.x - 4, b.y + b.height, b.width + 8, 4);
+                if (b.activated) { ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 15; ctx.fillRect(b.x, by, b.width, bh); ctx.shadowBlur = 0; }
+                // Door
+                if (dr.openProgress < 1) {
+                    const so = dr.height * dr.openProgress;
+                    ctx.fillStyle = dr.open ? '#4ade80' : '#6b7280';
+                    ctx.fillRect(dr.x, dr.y - so, dr.width, dr.height);
+                }
+                ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 2;
+                ctx.strokeRect(dr.x - 4, dr.y - 4, dr.width + 8, dr.height + 8);
+                if (dr.open && dr.openProgress >= 0.9) {
+                    const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.5;
+                    ctx.fillStyle = `rgba(74,222,128,${pulse})`; ctx.fillRect(dr.x - 8, dr.y, dr.width + 16, dr.height);
+                    ctx.fillStyle = '#fff'; ctx.font = '24px Arial'; ctx.textAlign = 'center';
+                    ctx.fillText('→', dr.x + dr.width / 2, dr.y + dr.height / 2 + 8);
+                }
+                // Player
+                ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.width, p.height);
                 ctx.fillStyle = '#fff';
-                ctx.font = '24px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('→', door.x + door.width / 2, door.y + door.height / 2 + 8);
+                ctx.fillRect(p.vx > 0 ? p.x + 20 : p.x + 8, p.y + 12, 6, 6);
             }
+        },
 
-            // Player
-            ctx.fillStyle = player.color;
-            ctx.fillRect(player.x, player.y, player.width, player.height);
-            
-            // Player eyes (direction indicator)
-            ctx.fillStyle = '#fff';
-            const eyeX = player.vx > 0 ? player.x + 20 : player.x + 8;
-            ctx.fillRect(eyeX, player.y + 12, 6, 6);
+        // --- L2: The Decoy ---
+        {
+            name: 'L2: The Decoy',
+            hint: 'Ignore It',
+            controls: 'A/D: Move | Space: Jump | R: Restart',
+            init() {
+                return {
+                    player: { x: 200, y: GROUND_Y - 48, vx: 0, vy: 0, width: 32, height: 48, speed: 5, jumpForce: -12, onGround: false, color: '#3b82f6' },
+                    button: { x: 616, y: GROUND_Y - 16, width: 48, height: 16, pressed: false, activated: false },
+                    door: { x: 892, y: GROUND_Y - 96, width: 16, height: 96, open: false, locked: false, openProgress: 0 }
+                };
+            },
+            update(d) {
+                const p = d.player, b = d.button, dr = d.door;
+                if (keys['a'] || keys['arrowleft']) p.vx = -p.speed;
+                else if (keys['d'] || keys['arrowright']) p.vx = p.speed;
+                else { p.vx *= 0.8; if (Math.abs(p.vx) < 0.1) p.vx = 0; }
+                if ((keys[' '] || keys['w']) && p.onGround) { p.vy = p.jumpForce; p.onGround = false; }
+                p.vy += GRAVITY; p.x += p.vx; p.y += p.vy;
+                if (p.y + p.height >= GROUND_Y) { p.y = GROUND_Y - p.height; p.vy = 0; p.onGround = true; }
+                if (p.x < 0) p.x = 0;
+                if (p.x + p.width > canvas.width) p.x = canvas.width - p.width;
+
+                // Button collision
+                const pB = p.y + p.height, pT = p.y, pR = p.x + p.width, pL = p.x;
+                const bT = b.y, bB = b.y + b.height, bL = b.x, bR = b.x + b.width;
+                const ox = pR > bL && pL < bR, oy = pB > bT && pT < bB;
+                if (ox && oy) {
+                    const oL = pR - bL, oR = bR - pL, oT = pB - bT, oB = bB - pT;
+                    const mx = Math.min(oL, oR), my = Math.min(oT, oB);
+                    if (my < mx) {
+                        if (oT < oB && p.vy >= 0) {
+                            p.y = bT - p.height; p.vy = 0; p.onGround = true; b.pressed = true;
+                            if (!b.activated) { b.activated = true; dr.locked = true; return 'failed'; }
+                        } else if (oB < oT) { p.y = bB; p.vy = 0; }
+                    } else {
+                        if (oL < oR) p.x = bL - p.width; else p.x = bR;
+                        p.vx = 0;
+                    }
+                } else { b.pressed = b.activated; }
+
+                // Door auto-opens when player approaches (if button NOT pressed)
+                if (!b.activated && !dr.locked) {
+                    const pr = { x: p.x, y: p.y, width: p.width, height: p.height };
+                    if (rectCollision(pr, { x: dr.x - 32, y: dr.y, width: dr.width + 64, height: dr.height })) dr.open = true;
+                }
+                if (dr.open && dr.openProgress < 1) { dr.openProgress += 0.02; if (dr.openProgress > 1) dr.openProgress = 1; }
+                const pr = { x: p.x, y: p.y, width: p.width, height: p.height };
+                if (dr.openProgress < 0.9 && !dr.locked) {
+                    const dRect = { x: dr.x, y: dr.y + dr.height * dr.openProgress, width: dr.width, height: dr.height * (1 - dr.openProgress) };
+                    if (rectCollision(pr, dRect)) {
+                        if (p.vx > 0) p.x = dRect.x - p.width; else if (p.vx < 0) p.x = dRect.x + dRect.width;
+                        p.vx = 0;
+                    }
+                }
+                if (dr.open && dr.openProgress >= 0.9) {
+                    if (rectCollision(pr, { x: dr.x - 16, y: dr.y, width: dr.width + 32, height: dr.height })) return 'complete';
+                }
+                return null;
+            },
+            draw(d) {
+                const p = d.player, b = d.button, dr = d.door;
+                // Button
+                ctx.fillStyle = b.activated ? '#ef4444' : '#fbbf24';
+                const by = b.pressed ? b.y + 4 : b.y, bh = b.pressed ? b.height - 4 : b.height;
+                ctx.fillRect(b.x, by, b.width, bh);
+                ctx.fillStyle = '#4b5563'; ctx.fillRect(b.x - 4, b.y + b.height, b.width + 8, 4);
+                if (b.activated) { ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 15; ctx.fillRect(b.x, by, b.width, bh); ctx.shadowBlur = 0; }
+                // Door
+                if (dr.locked) {
+                    ctx.fillStyle = '#ef4444'; ctx.fillRect(dr.x, dr.y, dr.width, dr.height);
+                    ctx.fillStyle = '#fff'; ctx.font = '20px Arial'; ctx.textAlign = 'center';
+                    ctx.fillText('🔒', dr.x + dr.width / 2, dr.y + dr.height / 2 + 6);
+                } else if (dr.openProgress < 1) {
+                    const so = dr.height * dr.openProgress;
+                    ctx.fillStyle = dr.open ? '#4ade80' : '#6b7280';
+                    ctx.fillRect(dr.x, dr.y - so, dr.width, dr.height);
+                }
+                ctx.strokeStyle = dr.locked ? '#ef4444' : '#9ca3af'; ctx.lineWidth = 2;
+                ctx.strokeRect(dr.x - 4, dr.y - 4, dr.width + 8, dr.height + 8);
+                if (dr.open && dr.openProgress >= 0.9) {
+                    const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.5;
+                    ctx.fillStyle = `rgba(74,222,128,${pulse})`; ctx.fillRect(dr.x - 8, dr.y, dr.width + 16, dr.height);
+                    ctx.fillStyle = '#fff'; ctx.font = '24px Arial'; ctx.textAlign = 'center';
+                    ctx.fillText('→', dr.x + dr.width / 2, dr.y + dr.height / 2 + 8);
+                }
+                // Player
+                ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.width, p.height);
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(p.vx > 0 ? p.x + 20 : p.x + 8, p.y + 12, 6, 6);
+            }
+        },
+
+        // --- L3: Patience ---
+        {
+            name: 'L3: Patience',
+            hint: 'Hold Your Breath',
+            controls: "Don't move. Just wait. | R: Restart",
+            init() {
+                return {
+                    player: { x: 400, y: GROUND_Y - 48, vx: 0, vy: 0, width: 32, height: 48, speed: 5, jumpForce: -12, onGround: false, color: '#3b82f6', breathPhase: 0 },
+                    door: { x: 892, y: GROUND_Y - 96, width: 16, height: 96, open: false, openProgress: 0 },
+                    waitTimer: 0,
+                    heartbeatPhase: 0,
+                    lastTime: Date.now()
+                };
+            },
+            update(d) {
+                const p = d.player, dr = d.door;
+                const now = Date.now();
+                const dt = now - d.lastTime;
+                d.lastTime = now;
+
+                const isMoving = keys['a'] || keys['d'] || keys[' '] || keys['w'] ||
+                    keys['arrowleft'] || keys['arrowright'] || keys['arrowup'] || keys['arrowdown'];
+
+                if (isMoving) { d.waitTimer = 0; } else { d.waitTimer += dt; }
+                if (d.waitTimer >= 5000 && !dr.open) dr.open = true;
+
+                if (keys['a'] || keys['arrowleft']) p.vx = -p.speed;
+                else if (keys['d'] || keys['arrowright']) p.vx = p.speed;
+                else { p.vx *= 0.8; if (Math.abs(p.vx) < 0.1) p.vx = 0; }
+                if ((keys[' '] || keys['w']) && p.onGround) { p.vy = p.jumpForce; p.onGround = false; }
+                p.vy += GRAVITY; p.x += p.vx; p.y += p.vy;
+                if (p.y + p.height >= GROUND_Y) { p.y = GROUND_Y - p.height; p.vy = 0; p.onGround = true; }
+                if (p.x < 0) p.x = 0;
+                if (p.x + p.width > canvas.width) p.x = canvas.width - p.width;
+
+                if (dr.open && dr.openProgress < 1) { dr.openProgress += 0.02; if (dr.openProgress > 1) dr.openProgress = 1; }
+                const pr = { x: p.x, y: p.y, width: p.width, height: p.height };
+                if (dr.openProgress < 0.9) {
+                    const dRect = { x: dr.x, y: dr.y + dr.height * dr.openProgress, width: dr.width, height: dr.height * (1 - dr.openProgress) };
+                    if (rectCollision(pr, dRect)) {
+                        if (p.vx > 0) p.x = dRect.x - p.width; else if (p.vx < 0) p.x = dRect.x + dRect.width;
+                        p.vx = 0;
+                    }
+                }
+                if (dr.open && dr.openProgress >= 0.9) {
+                    if (rectCollision(pr, { x: dr.x - 16, y: dr.y, width: dr.width + 32, height: dr.height })) return 'complete';
+                }
+                p.breathPhase += 0.03;
+                d.heartbeatPhase += isMoving ? 0.15 : 0.05;
+                return null;
+            },
+            draw(d) {
+                const p = d.player, dr = d.door;
+                // Door
+                if (dr.openProgress < 1) {
+                    const so = dr.height * dr.openProgress;
+                    ctx.fillStyle = dr.open ? '#4ade80' : '#6b7280';
+                    ctx.fillRect(dr.x, dr.y - so, dr.width, dr.height);
+                }
+                ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 2;
+                ctx.strokeRect(dr.x - 4, dr.y - 4, dr.width + 8, dr.height + 8);
+                if (dr.open && dr.openProgress >= 0.9) {
+                    const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.5;
+                    ctx.fillStyle = `rgba(74,222,128,${pulse})`; ctx.fillRect(dr.x - 8, dr.y, dr.width + 16, dr.height);
+                    ctx.fillStyle = '#fff'; ctx.font = '24px Arial'; ctx.textAlign = 'center';
+                    ctx.fillText('→', dr.x + dr.width / 2, dr.y + dr.height / 2 + 8);
+                }
+                // Player with breathing
+                const bo = Math.sin(p.breathPhase) * 2;
+                ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y + bo, p.width, p.height - bo);
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(p.vx > 0 ? p.x + 20 : p.x + 8, p.y + 12 + bo, 6, 6);
+
+                // Heartbeat + progress
+                const progress = Math.min(d.waitTimer / 5000, 1);
+                const isMoving = keys['a'] || keys['d'] || keys[' '] || keys['w'] ||
+                    keys['arrowleft'] || keys['arrowright'] || keys['arrowup'] || keys['arrowdown'];
+                const hs = 20 + Math.sin(d.heartbeatPhase) * (isMoving ? 8 : 3);
+                const hx = canvas.width / 2, hy = 80;
+                ctx.fillStyle = isMoving ? '#ef4444' : '#4ade80';
+                ctx.font = `${hs}px Arial`; ctx.textAlign = 'center';
+                ctx.fillText('♥', hx, hy);
+                // Progress bar
+                const bw = 200, bh = 8, bx = hx - bw / 2, by = hy + 20;
+                ctx.fillStyle = '#374151'; ctx.fillRect(bx, by, bw, bh);
+                ctx.fillStyle = isMoving ? '#ef4444' : '#4ade80'; ctx.fillRect(bx, by, bw * progress, bh);
+                const sl = Math.max(0, (5000 - d.waitTimer) / 1000).toFixed(1);
+                ctx.fillStyle = '#888'; ctx.font = '14px Courier New';
+                ctx.fillText(isMoving ? 'Moving... timer reset' : `${sl}s`, hx, by + 25);
+            }
+        }
+    ];
+
+    // ============================================================
+    // LEVEL LOADER
+    // ============================================================
+    function loadLevel(index) {
+        currentLevel = index;
+        gameState = 'playing';
+        keys = {};
+        const level = LEVELS[index];
+        levelData = level.init();
+        hintEl.textContent = level.hint;
+        levelInfoEl.textContent = level.name;
+        controlsEl.textContent = level.controls;
+        hideOverlay();
+        buildNav();
+    }
+
+    function buildNav() {
+        navEl.innerHTML = '';
+        LEVELS.forEach((level, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'nav-btn';
+            if (i === currentLevel) btn.classList.add('active');
+            else if (completedLevels.has(i)) btn.classList.add('completed');
+            btn.textContent = (completedLevels.has(i) ? '✓ ' : '') + `L${i + 1}`;
+            btn.onclick = () => loadLevel(i);
+            navEl.appendChild(btn);
+        });
+    }
+
+    // ============================================================
+    // GAME LOOP
+    // ============================================================
+    function gameLoop() {
+        // Clear
+        ctx.fillStyle = '#16213e';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Ground
+        ctx.fillStyle = '#374151';
+        ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+
+        if (gameState === 'playing') {
+            const result = LEVELS[currentLevel].update(levelData);
+            if (result === 'complete') {
+                gameState = 'complete';
+                completedLevels.add(currentLevel);
+                buildNav();
+                if (currentLevel + 1 < LEVELS.length) {
+                    showOverlay('Level Complete!', '#4ade80', 'Next Level →', '', nextLevel);
+                } else {
+                    showOverlay('All Levels Complete!', '#ffd700', 'Play Again', '', () => loadLevel(0));
+                }
+            } else if (result === 'failed') {
+                gameState = 'failed';
+                showOverlay('✗ Door Locked!', '#ef4444', 'Restart (R)', 'restart', restartLevel);
+            }
         }
 
-        // Game loop
-        function gameLoop() {
-            update();
-            draw();
-            requestAnimationFrame(gameLoop);
-        }
+        LEVELS[currentLevel].draw(levelData);
+        requestAnimationFrame(gameLoop);
+    }
 
-        // Start
-        gameLoop();
+    // Start
+    loadLevel(0);
+    gameLoop();
     </script>
 </body>
 </html>
