@@ -1,14 +1,37 @@
-[gd_scene load_steps=6 format=3 uid="uid://l1_button"]
+[gd_scene load_steps=8 format=3]
 
-[ext_resource type="PackedScene" uid="uid://player_scene" path="res://scenes/player/player.tscn" id="1"]
-[ext_resource type="PackedScene" uid="uid://button_scene" path="res://scenes/components/button.tscn" id="2"]
-[ext_resource type="PackedScene" uid="uid://door_scene" path="res://scenes/components/door.tscn" id="3"]
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
+[ext_resource type="Script" path="res://scripts/button.gd" id="2_button"]
+[ext_resource type="Script" path="res://scripts/door.gd" id="3_door"]
+[ext_resource type="Script" path="res://scripts/goal_trigger.gd" id="4_goal"]
+[ext_resource type="Script" path="res://scripts/levels/L1_button.gd" id="5_level"]
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
-size = Vector2(800, 32)
+[sub_resource type="RectangleShape2D" id="ground_shape"]
+size = Vector2(1200, 32)
 
-[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_ground"]
-size = Vector2(800, 32)
+[sub_resource type="RectangleShape2D" id="player_shape"]
+size = Vector2(32, 48)
+
+[sub_resource type="PlaceholderTexture2D" id="ground_tex"]
+size = Vector2(1200, 32)
+
+[sub_resource type="PlaceholderTexture2D" id="player_tex"]
+size = Vector2(32, 48)
+
+[sub_resource type="RectangleShape2D" id="button_shape"]
+size = Vector2(48, 16)
+
+[sub_resource type="PlaceholderTexture2D" id="button_tex"]
+size = Vector2(48, 16)
+
+[sub_resource type="RectangleShape2D" id="door_shape"]
+size = Vector2(16, 96)
+
+[sub_resource type="PlaceholderTexture2D" id="door_tex"]
+size = Vector2(16, 96)
+
+[sub_resource type="RectangleShape2D" id="goal_shape"]
+size = Vector2(32, 96)
 
 [node name="L1_Button" type="Node2D"]
 
@@ -18,22 +41,62 @@ collision_layer = 2
 collision_mask = 0
 
 [node name="Sprite2D" type="Sprite2D" parent="Ground"]
-texture = SubResource("PlaceholderTexture2D_ground")
+texture = SubResource("ground_tex")
 modulate = Color(0.3, 0.3, 0.3, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
-shape = SubResource("RectangleShape2D_ground")
+shape = SubResource("ground_shape")
 
-[node name="Player" parent="." instance=ExtResource("1")]
-position = Vector2(200, 450)
+[node name="Player" type="CharacterBody2D" parent="."]
+position = Vector2(200, 460)
+collision_layer = 1
+collision_mask = 6
+script = ExtResource("1_player")
 
-[node name="Button" parent="." instance=ExtResource("2")]
-position = Vector2(640, 476)
+[node name="Sprite2D" type="Sprite2D" parent="Player"]
+texture = SubResource("player_tex")
+modulate = Color(0.2, 0.6, 1, 1)
 
-[node name="Door" parent="." instance=ExtResource("3")]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
+shape = SubResource("player_shape")
+
+[node name="Button" type="Area2D" parent="."]
+position = Vector2(640, 478)
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("2_button")
+
+[node name="Sprite2D" type="Sprite2D" parent="Button"]
+texture = SubResource("button_tex")
+modulate = Color(0.8, 0.8, 0.2, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Button"]
+shape = SubResource("button_shape")
+
+[node name="Door" type="StaticBody2D" parent="."]
 position = Vector2(900, 436)
+collision_layer = 8
+collision_mask = 1
+script = ExtResource("3_door")
+
+[node name="Sprite2D" type="Sprite2D" parent="Door"]
+texture = SubResource("door_tex")
+modulate = Color(0.6, 0.6, 0.6, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Door"]
+shape = SubResource("door_shape")
+
+[node name="GoalTrigger" type="Area2D" parent="."]
+position = Vector2(1000, 436)
+collision_layer = 0
+collision_mask = 1
+script = ExtResource("4_goal")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="GoalTrigger"]
+shape = SubResource("goal_shape")
 
 [node name="LevelScript" type="Node" parent="."]
+script = ExtResource("5_level")
 
 [node name="HintLabel" type="Label" parent="."]
 anchors_preset = 5
