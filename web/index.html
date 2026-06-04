@@ -984,13 +984,21 @@
                 });
 
                 // Button (on ceiling, hangs down)
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
                 ctx.fillStyle = b.activated ? '#ef4444' : '#fbbf24';
                 const bh = b.pressed ? b.height - 4 : b.height;
                 ctx.fillRect(b.x, CEIL, b.width, bh);
                 ctx.fillStyle = '#4b5563'; ctx.fillRect(b.x - 4, CEIL - 4, b.width + 8, 4);
-                if (b.activated) { ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 15; ctx.fillRect(b.x, CEIL, b.width, bh); ctx.shadowBlur = 0; }
+                if (b.activated) {
+                    ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 15;
+                    ctx.fillRect(b.x, CEIL, b.width, bh);
+                    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+                }
 
                 // Door (on ceiling, slides up to open)
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
                 if (dr.openProgress < 1) {
                     const so = dr.height * dr.openProgress;
                     ctx.fillStyle = dr.open ? '#4ade80' : '#6b7280';
@@ -1006,6 +1014,8 @@
                 }
 
                 // Player (upside down - draw flipped)
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
                 ctx.save();
                 ctx.translate(p.x + p.width / 2, p.y + p.height / 2);
                 ctx.scale(1, -1); // flip vertically
