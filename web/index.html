@@ -593,6 +593,140 @@
                     levelData.door.open = true;
                 }
             }
+        },
+
+        // --- L5: Keep Jumping ---
+        {
+            name: 'L5: Keep Jumping',
+            hint: "Don't Stop",
+            controls: 'A/D: Move | Space: Jump (repeatedly on the button) | R: Restart',
+            init() {
+                return {
+                    player: { x: 200, y: GROUND_Y - 48, vx: 0, vy: 0, width: 32, height: 48, speed: 5, jumpForce: -12, onGround: false, color: '#3b82f6' },
+                    button: { x: 616, y: GROUND_Y - 16, width: 48, height: 16, pressed: false, pressCount: 0, requiredPresses: 5, wasOnButton: false },
+                    door: { x: 892, y: GROUND_Y - 96, width: 16, height: 96, open: false, openProgress: 0 },
+                    indicators: [], // door indicator lights
+                    noteIndex: 0 // for musical scale
+                };
+            },
+            update(d) {
+                const p = d.player, b = d.button, dr = d.door;
+                // Movement
+                if (keys['a'] || keys['arrowleft']) p.vx = -p.speed;
+                else if (keys['d'] || keys['arrowright']) p.vx = p.speed;
+                else { p.vx *= 0.8; if (Math.abs(p.vx) < 0.1) p.vx = 0; }
+                if ((keys[' '] || keys['w']) && p.onGround) { p.vy = p.jumpForce; p.onGround = false; }
+                p.vy += GRAVITY; p.x += p.vx; p.y += p.vy;
+                if (p.y + p.height >= GROUND_Y) { p.y = GROUND_Y - p.height; p.vy = 0; p.onGround = true; }
+                if (p.x < 0) p.x = 0;
+                if (p.x + p.width > canvas.width) p.x = canvas.width - p.width;
+
+                // Button collision
+                const pB = p.y + p.height, pT = p.y, pR = p.x + p.width, pL = p.x;
+                const bT = b.y, bB = b.y + b.height, bL = b.x, bR = b.x + b.width;
+                const ox = pR > bL && pL < bR, oy = pB > bT && pT < bB;
+                let onButton = false;
+                if (ox && oy) {
+                    const oL = pR - bL, oR = bR - pL, oT = pB - bT, oB = bB - pT;
+                    const mx = Math.min(oL, oR), my = Math.min(oT, oB);
+                    if (my < mx) {
+                        if (oT < oB && p.vy >= 0) {
+                            p.y = bT - p.height; p.vy = 0; p.onGround = true;
+                            onButton = true; b.pressed = true;
+                            // Count press: landing after being off the button
+                            if (!b.wasOnButton) {
+                                b.pressCount++;
+                                d.noteIndex = b.pressCount;
+                                if (b.pressCount >= b.requiredPresses) {
+                                    dr.open = true;
+                                }
+                            }
+                        } else if (oB < oT) { p.y = bB; p.vy = 0; }
+                    } else {
+                        if (oL < oR) p.x = bL - p.width; else p.x = bR;
+                        p.vx = 0;
+                    }
+                } else { b.pressed = false; }
+                b.wasOnButton = onButton;
+
+                // Door
+                if (dr.open && dr.openProgress < 1) { dr.openProgress += 0.02; if (dr.openProgress > 1) dr.openProgress = 1; }
+                const pr = { x: p.x, y: p.y, width: p.width, height: p.height };
+                if (dr.openProgress < 0.9) {
+                    const dRect = { x: dr.x, y: dr.y + dr.height * dr.openProgress, width: dr.width, height: dr.height * (1 - dr.openProgress) };
+                    if (rectCollision(pr, dRect)) {
+                        if (p.vx > 0) p.x = dRect.x - p.width; else if (p.vx < 0) p.x = dRect.x + dRect.width;
+                        p.vx = 0;
+                    }
+                }
+                if (dr.open && dr.openProgress >= 0.9) {
+                    if (rectCollision(pr, { x: dr.x - 16, y: dr.y, width: dr.width + 32, height: dr.height })) return 'complete';
+                }
+                return null;
+            },
+            draw(d) {
+                const p = d.player, b = d.button, dr = d.door;
+                // Button - gets more squished with each press
+                const squish = Math.min(b.pressCount / b.requiredPresses, 1);
+                const btnH = b.height * (1 - squish * 0.6);
+                const btnY = b.y + (b.height - btnH);
+                // Color transitions from yellow to green
+                const r = Math.round(251 - squish * 177);
+                const g = Math.round(191 + squish * 31);
+                const bl = Math.round(36 + squish * 92);
+                ctx.fillStyle = `rgb(${r},${g},${bl})`;
+                ctx.fillRect(b.x, btnY, b.width, btnH);
+                ctx.fillStyle = '#4b5563'; ctx.fillRect(b.x - 4, b.y + b.height, b.width + 8, 4);
+                // Glow when fully charged
+                if (b.pressCount >= b.requiredPresses) {
+                    ctx.shadowColor = '#4ade80'; ctx.shadowBlur = 15;
+                    ctx.fillRect(b.x, btnY, b.width, btnH);
+                    ctx.shadowBlur = 0;
+                }
+
+                // Door indicators - small lights on the side
+                for (let i = 0; i < b.requiredPresses; i++) {
+                    const iy = dr.y + 10 + i * 18;
+                    const lit = i < b.pressCount;
+                    ctx.beginPath();
+                    ctx.arc(dr.x - 12, iy, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = lit ? '#4ade80' : '#374151';
+                    ctx.fill();
+                    if (lit) {
+                        ctx.shadowColor = '#4ade80'; ctx.shadowBlur = 8;
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                    }
+                }
+
+                // Door
+                if (dr.openProgress < 1) {
+                    const so = dr.height * dr.openProgress;
+                    ctx.fillStyle = dr.open ? '#4ade80' : '#6b7280';
+                    ctx.fillRect(dr.x, dr.y - so, dr.width, dr.height);
+                }
+                ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 2;
+                ctx.strokeRect(dr.x - 4, dr.y - 4, dr.width + 8, dr.height + 8);
+                if (dr.open && dr.openProgress >= 0.9) {
+                    const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.5;
+                    ctx.fillStyle = `rgba(74,222,128,${pulse})`; ctx.fillRect(dr.x - 8, dr.y, dr.width + 16, dr.height);
+                    ctx.fillStyle = '#fff'; ctx.font = '24px Arial'; ctx.textAlign = 'center';
+                    ctx.fillText('→', dr.x + dr.width / 2, dr.y + dr.height / 2 + 8);
+                }
+
+                // Musical note display
+                if (d.noteIndex > 0 && b.pressCount < b.requiredPresses) {
+                    const notes = ['Do', 'Re', 'Mi', 'Fa', 'Sol'];
+                    ctx.fillStyle = '#ffd700'; ctx.font = '20px Courier New'; ctx.textAlign = 'center';
+                    const noteText = notes.slice(0, b.pressCount).join(' ');
+                    ctx.fillText(noteText, canvas.width / 2, 80);
+                }
+
+                // Player
+                ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.width, p.height);
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(p.vx > 0 ? p.x + 20 : p.x + 8, p.y + 12, 6, 6);
+            }
         }
     ];
 
