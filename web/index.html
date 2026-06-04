@@ -1526,6 +1526,14 @@
                     ctx.fillStyle = dr.open ? '#4ade80' : '#6b7280';
                     ctx.fillRect(dr.x, dr.y - so, dr.width, dr.height);
                 }
+                ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 2;
+                ctx.strokeRect(dr.x - 4, dr.y - 4, dr.width + 8, dr.height + 8);
+                if (dr.open && dr.openProgress >= 0.9) {
+                    const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.5;
+                    ctx.fillStyle = `rgba(74,222,128,${pulse})`; ctx.fillRect(dr.x - 8, dr.y, dr.width + 16, dr.height);
+                    ctx.fillStyle = '#fff'; ctx.font = '24px Arial'; ctx.textAlign = 'center';
+                    ctx.fillText('→', dr.x + dr.width / 2, dr.y + dr.height / 2 + 8);
+                }
 
                 // Button (faintly visible when in glow range)
                 const btnDist = Math.sqrt((p.x + p.width / 2 - btn.x - btn.width / 2) ** 2 + (p.y + p.height / 2 - btn.y - btn.height / 2) ** 2);
