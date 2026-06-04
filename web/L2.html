@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project OneRoom - L2: The Decoy</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            color: #eee;
+        }
+        #game-container { position: relative; }
+        canvas {
+            border: 2px solid #444;
+            background: #16213e;
+            display: block;
+        }
+        #hint {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            color: #ffd700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        #level-info { margin-top: 20px; font-size: 14px; color: #888; }
+        #controls { margin-top: 10px; font-size: 12px; color: #666; }
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 32px;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+            display: none;
+        }
+        #nav {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        #nav a {
+            color: #888;
+            text-decoration: none;
+            padding: 5px 15px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        #nav a:hover { color: #fff; border-color: #888; }
+        #nav a.active { color: #4ade80; border-color: #4ade80; }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game" width="1280" height="720"></canvas>
+        <div id="hint">Ignore It</div>
+        <div id="message"></div>
+    </div>
+    <div id="level-info">L2: The Decoy</div>
+    <div id="controls">A/D: Move | Space: Jump | R: Restart</div>
+    <div id="nav">
+        <a href="index.html">L1</a>
+        <a href="L2.html" class="active">L2</a>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const messageEl = document.getElementById('message');
+
+        // Game constants
+        const GRAVITY = 0.5;
+        const GROUND_Y = 500;
+        const PLAYER_WIDTH = 32;
+        const PLAYER_HEIGHT = 48;
+        const BUTTON_WIDTH = 48;
+        const BUTTON_HEIGHT = 16;
+        const DOOR_WIDTH = 16;
+        const DOOR_HEIGHT = 96;
+
+        // Game state
+        let gameState = 'playing'; // playing, complete, failed
+
+        // Player
+        const playerStart = { x: 200, y: GROUND_Y - PLAYER_HEIGHT };
+        let player = {
+            x: playerStart.x,
+            y: playerStart.y,
+            vx: 0,
+            vy: 0,
+            width: PLAYER_WIDTH,
+            height: PLAYER_HEIGHT,
+            speed: 5,
+            jumpForce: -12,
+            onGround: false,
+            color: '#3b82f6'
+        };
+
+        // Button - same position as L1, but this time it's a TRAP
+        const button = {
+            x: 640 - BUTTON_WIDTH / 2,
+            y: GROUND_Y - BUTTON_HEIGHT,
+            width: BUTTON_WIDTH,
+            height: BUTTON_HEIGHT,
+            pressed: false,
+            activated: false,
+            color: '#fbbf24',
+            activeColor: '#ef4444'
+        };
+
+        // Door
+        const door = {
+            x: 900 - DOOR_WIDTH / 2,
+            y: GROUND_Y - DOOR_HEIGHT,
+            width: DOOR_WIDTH,
+            height: DOOR_HEIGHT,
+            open: false,
+            locked: false,
+            openProgress: 0,
+            color: '#6b7280',
+            openColor: '#4ade80',
+            lockedColor: '#ef4444'
+        };
+
+        // Input
+        const keys = {};
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === ' ') e.preventDefault();
+            if (e.key.toLowerCase() === 'r') restart();
+        });
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        function restart() {
+            player.x = playerStart.x;
+            player.y = playerStart.y;
+            player.vx = 0;
+            player.vy = 0;
+            player.onGround = false;
+            button.pressed = false;
+            button.activated = false;
+            door.open = false;
+            door.locked = false;
+            door.openProgress = 0;
+            gameState = 'playing';
+            messageEl.style.display = 'none';
+        }
+
+        function rectCollision(a, b) {
+            return a.x < b.x + b.width &&
+                   a.x + a.width > b.x &&
+                   a.y < b.y + b.height &&
+                   a.y + a.height > b.y;
+        }
+
+        function showMessage(text, color) {
+            messageEl.textContent = text;
+            messageEl.style.color = color;
+            messageEl.style.display = 'block';
+        }
+
+        function update() {
+            if (gameState !== 'playing') return;
+
+            // Horizontal movement
+            if (keys['a'] || keys['arrowleft']) {
+                player.vx = -player.speed;
+            } else if (keys['d'] || keys['arrowright']) {
+                player.vx = player.speed;
+            } else {
+                player.vx *= 0.8;
+                if (Math.abs(player.vx) < 0.1) player.vx = 0;
+            }
+
+            // Jump
+            if ((keys[' '] || keys['w'] || keys['arrowup']) && player.onGround) {
+                player.vy = player.jumpForce;
+                player.onGround = false;
+            }
+
+            // Gravity
+            player.vy += GRAVITY;
+            player.x += player.vx;
+            player.y += player.vy;
+
+            // Ground
+            if (player.y + player.height >= GROUND_Y) {
+                player.y = GROUND_Y - player.height;
+                player.vy = 0;
+                player.onGround = true;
+            }
+
+            // Bounds
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+
+            // === Button collision (solid obstacle) ===
+            const playerBottom = player.y + player.height;
+            const playerTop = player.y;
+            const playerRight = player.x + player.width;
+            const playerLeft = player.x;
+            const buttonTop = button.y;
+            const buttonBottom = button.y + button.height;
+            const buttonLeft = button.x;
+            const buttonRight = button.x + button.width;
+
+            const overlapX = playerRight > buttonLeft && playerLeft < buttonRight;
+            const overlapY = playerBottom > buttonTop && playerTop < buttonBottom;
+
+            if (overlapX && overlapY) {
+                const overlapFromLeft = playerRight - buttonLeft;
+                const overlapFromRight = buttonRight - playerLeft;
+                const overlapFromTop = playerBottom - buttonTop;
+                const overlapFromBottom = buttonBottom - playerTop;
+
+                const minOverlapX = Math.min(overlapFromLeft, overlapFromRight);
+                const minOverlapY = Math.min(overlapFromTop, overlapFromBottom);
+
+                if (minOverlapY < minOverlapX) {
+                    if (overlapFromTop < overlapFromBottom && player.vy >= 0) {
+                        // Landed on button - THIS IS THE TRAP!
+                        player.y = buttonTop - player.height;
+                        player.vy = 0;
+                        player.onGround = true;
+                        button.pressed = true;
+                        if (!button.activated) {
+                            button.activated = true;
+                            // Door LOCKS instead of opening!
+                            door.locked = true;
+                            gameState = 'failed';
+                            showMessage('✗ Door Locked! Press R to restart', '#ef4444');
+                        }
+                    } else if (overlapFromBottom < overlapFromTop) {
+                        player.y = buttonBottom;
+                        player.vy = 0;
+                    }
+                } else {
+                    if (overlapFromLeft < overlapFromRight) {
+                        player.x = buttonLeft - player.width;
+                    } else {
+                        player.x = buttonRight;
+                    }
+                    player.vx = 0;
+                }
+            } else {
+                button.pressed = button.activated;
+            }
+
+            // === Door auto-open: if button NOT pressed and player reaches door ===
+            if (!button.activated && !door.locked) {
+                const playerRect = { x: player.x, y: player.y, width: player.width, height: player.height };
+                const doorArea = { x: door.x - 32, y: door.y, width: door.width + 64, height: door.height };
+                if (rectCollision(playerRect, doorArea)) {
+                    door.open = true;
+                }
+            }
+
+            // Door animation
+            if (door.open && door.openProgress < 1) {
+                door.openProgress += 0.02;
+                if (door.openProgress > 1) door.openProgress = 1;
+            }
+
+            // Door collision (when not fully open)
+            const playerRect = { x: player.x, y: player.y, width: player.width, height: player.height };
+            if (door.openProgress < 0.9 && !door.locked) {
+                const doorRect = {
+                    x: door.x,
+                    y: door.y + (door.height * door.openProgress),
+                    width: door.width,
+                    height: door.height * (1 - door.openProgress)
+                };
+                if (rectCollision(playerRect, doorRect)) {
+                    if (player.vx > 0) {
+                        player.x = doorRect.x - player.width;
+                    } else if (player.vx < 0) {
+                        player.x = doorRect.x + doorRect.width;
+                    }
+                    player.vx = 0;
+                }
+            }
+
+            // Goal: walk through door after it opens
+            if (door.open && door.openProgress >= 0.9) {
+                const goalRect = { x: door.x - 16, y: door.y, width: door.width + 32, height: door.height };
+                if (rectCollision(playerRect, goalRect)) {
+                    gameState = 'complete';
+                    showMessage('Level Complete!', '#4ade80');
+                }
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = '#16213e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Ground
+            ctx.fillStyle = '#374151';
+            ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+
+            // Button
+            ctx.fillStyle = button.activated ? button.activeColor : button.color;
+            const buttonY = button.pressed ? button.y + 4 : button.y;
+            const buttonH = button.pressed ? button.height - 4 : button.height;
+            ctx.fillRect(button.x, buttonY, button.width, buttonH);
+
+            // Button base
+            ctx.fillStyle = '#4b5563';
+            ctx.fillRect(button.x - 4, button.y + button.height, button.width + 8, 4);
+
+            // Button glow
+            if (button.activated) {
+                ctx.shadowColor = button.activeColor;
+                ctx.shadowBlur = 15;
+                ctx.fillStyle = button.activeColor;
+                ctx.fillRect(button.x, buttonY, button.width, buttonH);
+                ctx.shadowBlur = 0;
+            }
+
+            // Door
+            if (door.locked) {
+                // Locked door - red, stays closed
+                ctx.fillStyle = door.lockedColor;
+                ctx.fillRect(door.x, door.y, door.width, door.height);
+                // Lock icon
+                ctx.fillStyle = '#fff';
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('🔒', door.x + door.width / 2, door.y + door.height / 2 + 6);
+            } else if (door.openProgress < 1) {
+                const slideOffset = door.height * door.openProgress;
+                ctx.fillStyle = door.open ? door.openColor : door.color;
+                ctx.fillRect(door.x, door.y - slideOffset, door.width, door.height);
+            }
+
+            // Door frame
+            ctx.strokeStyle = door.locked ? '#ef4444' : '#9ca3af';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(door.x - 4, door.y - 4, door.width + 8, door.height + 8);
+
+            // Goal glow at door position
+            if (door.open && door.openProgress >= 0.9) {
+                const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.5;
+                ctx.fillStyle = `rgba(74, 222, 128, ${pulse})`;
+                ctx.fillRect(door.x - 8, door.y, door.width + 16, door.height);
+                ctx.fillStyle = '#fff';
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('→', door.x + door.width / 2, door.y + door.height / 2 + 8);
+            }
+
+            // Player
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            ctx.fillStyle = '#fff';
+            const eyeX = player.vx > 0 ? player.x + 20 : player.x + 8;
+            ctx.fillRect(eyeX, player.y + 12, 6, 6);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
