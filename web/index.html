@@ -988,7 +988,7 @@
                 const bh = b.pressed ? b.height - 4 : b.height;
                 ctx.fillRect(b.x, CEIL, b.width, bh);
                 ctx.fillStyle = '#4b5563'; ctx.fillRect(b.x - 4, CEIL - 4, b.width + 8, 4);
-                if (b.activated) { ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 15; ctx.fillRect(b.x, by, b.width, bh); ctx.shadowBlur = 0; }
+                if (b.activated) { ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 15; ctx.fillRect(b.x, CEIL, b.width, bh); ctx.shadowBlur = 0; }
 
                 // Door (on ceiling, slides up to open)
                 if (dr.openProgress < 1) {
