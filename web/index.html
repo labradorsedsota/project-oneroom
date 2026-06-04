@@ -376,7 +376,8 @@
             controls: "Don't move. Just wait. | R: Restart",
             init() {
                 return {
-                    player: { x: 400, y: GROUND_Y - 48, vx: 0, vy: 0, width: 32, height: 48, speed: 4, jumpForce: -11, onGround: false, color: '#3b82f6', breathPhase: 0 },
+                    player: { x: 200, y: GROUND_Y - 48, vx: 0, vy: 0, width: 32, height: 48, speed: 4, jumpForce: -11, onGround: false, color: '#3b82f6', breathPhase: 0 },
+                    button: { x: 616, y: GROUND_Y - 16, width: 48, height: 16, pressed: false },
                     door: { x: 892, y: GROUND_Y - 96, width: 16, height: 96, open: false, openProgress: 0 },
                     waitTimer: 0,
                     heartbeatPhase: 0,
@@ -404,6 +405,23 @@
                 if (p.x < 0) p.x = 0;
                 if (p.x + p.width > canvas.width) p.x = canvas.width - p.width;
 
+                // Button collision (solid obstacle, does nothing)
+                const b = d.button;
+                const pB = p.y + p.height, pT = p.y, pR = p.x + p.width, pL = p.x;
+                const bT = b.y, bB = b.y + b.height, bL = b.x, bR = b.x + b.width;
+                const ox = pR > bL && pL < bR, oy = pB > bT && pT < bB;
+                if (ox && oy) {
+                    const oL = pR - bL, oR = bR - pL, oT = pB - bT, oB = bB - pT;
+                    const mx = Math.min(oL, oR), my = Math.min(oT, oB);
+                    if (my < mx) {
+                        if (oT < oB && p.vy >= 0) { p.y = bT - p.height; p.vy = 0; p.onGround = true; b.pressed = true; }
+                        else if (oB < oT) { p.y = bB; p.vy = 0; }
+                    } else {
+                        if (oL < oR) p.x = bL - p.width; else p.x = bR;
+                        p.vx = 0;
+                    }
+                } else { b.pressed = false; }
+
                 if (dr.open && dr.openProgress < 1) { dr.openProgress += 0.02; if (dr.openProgress > 1) dr.openProgress = 1; }
                 const pr = { x: p.x, y: p.y, width: p.width, height: p.height };
                 if (dr.openProgress < 0.9) {
@@ -421,7 +439,12 @@
                 return null;
             },
             draw(d) {
-                const p = d.player, dr = d.door;
+                const p = d.player, dr = d.door, b = d.button;
+                // Button (solid obstacle, does nothing)
+                ctx.fillStyle = '#fbbf24';
+                const by = b.pressed ? b.y + 4 : b.y, bh = b.pressed ? b.height - 4 : b.height;
+                ctx.fillRect(b.x, by, b.width, bh);
+                ctx.fillStyle = '#4b5563'; ctx.fillRect(b.x - 4, b.y + b.height, b.width + 8, 4);
                 // Door
                 if (dr.openProgress < 1) {
                     const so = dr.height * dr.openProgress;
