@@ -963,19 +963,29 @@
                     return pt.life > 0;
                 });
 
-                // Button collision (on ceiling - player walks over it)
-                if (p.onCeiling) {
-                    const pR = p.x + p.width, pL = p.x;
-                    const bL = b.x, bR = b.x + b.width;
-                    if (pR > bL && pL < bR) {
-                        b.pressed = true;
-                        if (!b.activated) { b.activated = true; dr.open = true; }
+                // Button collision (solid obstacle on ceiling)
+                const pB2 = p.y + p.height, pT2 = p.y, pR2 = p.x + p.width, pL2 = p.x;
+                const bT2 = b.y, bB2 = b.y + b.height, bL2 = b.x, bR2 = b.x + b.width;
+                const ox2 = pR2 > bL2 && pL2 < bR2, oy2 = pB2 > bT2 && pT2 < bB2;
+                if (ox2 && oy2) {
+                    const oL2 = pR2 - bL2, oR2 = bR2 - pL2, oT2 = pB2 - bT2, oB2 = bB2 - pT2;
+                    const mx2 = Math.min(oL2, oR2), my2 = Math.min(oT2, oB2);
+                    if (my2 < mx2) {
+                        // Vertical resolution
+                        if (oB2 < oT2 && p.vy <= 0) {
+                            // Player coming up, hits button bottom -> land on button
+                            p.y = bB2; p.vy = 0; p.onCeiling = true; b.pressed = true;
+                            if (!b.activated) { b.activated = true; dr.open = true; }
+                        } else if (oT2 < oB2 && p.vy >= 0) {
+                            // Player falling down, hits button top
+                            p.y = bT2 - p.height; p.vy = 0;
+                        }
                     } else {
-                        b.pressed = b.activated;
+                        // Horizontal resolution (block movement)
+                        if (oL2 < oR2) p.x = bL2 - p.width; else p.x = bR2;
+                        p.vx = 0;
                     }
-                } else {
-                    b.pressed = b.activated;
-                }
+                } else { b.pressed = b.activated; }
 
                 // Door
                 if (dr.open && dr.openProgress < 1) { dr.openProgress += 0.02; if (dr.openProgress > 1) dr.openProgress = 1; }
