@@ -475,12 +475,12 @@
                 ctx.font = `${hs}px Arial`; ctx.textAlign = 'center';
                 ctx.fillText('♥', hx, hy);
                 // Progress bar
-                const bw = 200, bh = 8, bx = hx - bw / 2, by = hy + 20;
-                ctx.fillStyle = '#374151'; ctx.fillRect(bx, by, bw, bh);
-                ctx.fillStyle = isMoving ? '#ef4444' : '#4ade80'; ctx.fillRect(bx, by, bw * progress, bh);
+                const barW = 200, barH = 8, barX = hx - barW / 2, barY = hy + 20;
+                ctx.fillStyle = '#374151'; ctx.fillRect(barX, barY, barW, barH);
+                ctx.fillStyle = isMoving ? '#ef4444' : '#4ade80'; ctx.fillRect(barX, barY, barW * progress, barH);
                 const sl = Math.max(0, (5000 - d.waitTimer) / 1000).toFixed(1);
                 ctx.fillStyle = '#888'; ctx.font = '14px Courier New';
-                ctx.fillText(isMoving ? 'Moving... timer reset' : `${sl}s`, hx, by + 25);
+                ctx.fillText(isMoving ? 'Moving... timer reset' : `${sl}s`, hx, barY + 25);
             }
         },
 
