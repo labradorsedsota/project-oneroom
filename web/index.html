@@ -1049,6 +1049,123 @@
                 ctx.fillRect(eyeX, -p.height / 2 + 12, 6, 6);
                 ctx.restore();
             }
+        },
+
+        // --- L8: Slippery ---
+        {
+            name: 'L8: Slippery',
+            hint: 'No Friction',
+            controls: 'A/D: Move (slide!) | Space: Disabled | R: Restart',
+            init() {
+                return {
+                    player: { x: 200, y: GROUND_Y - 48, vx: 0, vy: 0, width: 32, height: 48, speed: 0.3, jumpForce: 0, onGround: false, color: '#3b82f6', friction: 0.98 },
+                    button: { x: 616, y: GROUND_Y - 16, width: 48, height: 16, pressed: false, activated: false },
+                    door: { x: 892, y: GROUND_Y - 96, width: 16, height: 96, open: false, openProgress: 0 },
+                    iceParticles: []
+                };
+            },
+            update(d) {
+                const p = d.player, b = d.button, dr = d.door;
+                // Very low acceleration, high inertia
+                if (keys['a'] || keys['arrowleft']) p.vx -= p.speed;
+                else if (keys['d'] || keys['arrowright']) p.vx += p.speed;
+                // No jump!
+                // Apply friction (very low)
+                p.vx *= p.friction;
+                p.vy += GRAVITY;
+                p.x += p.vx;
+                p.y += p.vy;
+                if (p.y + p.height >= GROUND_Y) {
+                    p.y = GROUND_Y - p.height;
+                    p.vy = 0;
+                    p.onGround = true;
+                }
+                if (p.x < 0) { p.x = 0; p.vx = 0; }
+                if (p.x + p.width > canvas.width) { p.x = canvas.width - p.width; p.vx = 0; }
+
+                // Ice particles when moving
+                if (Math.abs(p.vx) > 1 && Math.random() < 0.3) {
+                    d.iceParticles.push({ x: p.x + p.width / 2, y: GROUND_Y - 2, vx: -p.vx * 0.2, life: 1 });
+                }
+                d.iceParticles = d.iceParticles.filter(pt => {
+                    pt.x += pt.vx; pt.life -= 0.02;
+                    return pt.life > 0;
+                });
+
+                // Button collision
+                const pB = p.y + p.height, pT = p.y, pR = p.x + p.width, pL = p.x;
+                const bT = b.y, bB = b.y + b.height, bL = b.x, bR = b.x + b.width;
+                const ox = pR > bL && pL < bR, oy = pB > bT && pT < bB;
+                if (ox && oy) {
+                    const oL = pR - bL, oR = bR - pL, oT = pB - bT, oB = bB - pT;
+                    const mx = Math.min(oL, oR), my = Math.min(oT, oB);
+                    if (my < mx) {
+                        if (oT < oB && p.vy >= 0) {
+                            p.y = bT - p.height; p.vy = 0; p.onGround = true; b.pressed = true;
+                            if (!b.activated) { b.activated = true; dr.open = true; }
+                        } else if (oB < oT) { p.y = bB; p.vy = 0; }
+                    } else {
+                        if (oL < oR) { p.x = bL - p.width; p.vx = -p.vx * 0.5; }
+                        else { p.x = bR; p.vx = -p.vx * 0.5; }
+                    }
+                } else { b.pressed = b.activated; }
+
+                // Door
+                if (dr.open && dr.openProgress < 1) { dr.openProgress += 0.02; if (dr.openProgress > 1) dr.openProgress = 1; }
+                const pr = { x: p.x, y: p.y, width: p.width, height: p.height };
+                if (dr.openProgress < 0.9) {
+                    const dRect = { x: dr.x, y: dr.y + dr.height * dr.openProgress, width: dr.width, height: dr.height * (1 - dr.openProgress) };
+                    if (rectCollision(pr, dRect)) {
+                        if (p.vx > 0) { p.x = dRect.x - p.width; p.vx = -p.vx * 0.5; }
+                        else if (p.vx < 0) { p.x = dRect.x + dRect.width; p.vx = -p.vx * 0.5; }
+                    }
+                }
+                if (dr.open && dr.openProgress >= 0.9) {
+                    if (rectCollision(pr, { x: dr.x - 16, y: dr.y, width: dr.width + 32, height: dr.height })) return 'complete';
+                }
+                return null;
+            },
+            draw(d) {
+                const p = d.player, b = d.button, dr = d.door;
+                // Ice floor effect
+                ctx.fillStyle = 'rgba(173, 216, 230, 0.3)';
+                ctx.fillRect(0, GROUND_Y, canvas.width, 4);
+                // Ice particles
+                d.iceParticles.forEach(pt => {
+                    ctx.fillStyle = `rgba(173, 216, 230, ${pt.life * 0.5})`;
+                    ctx.fillRect(pt.x - 1, pt.y - 1, 2, 2);
+                });
+                // Button
+                ctx.fillStyle = b.activated ? '#ef4444' : '#fbbf24';
+                const by = b.pressed ? b.y + 4 : b.y, bh = b.pressed ? b.height - 4 : b.height;
+                ctx.fillRect(b.x, by, b.width, bh);
+                ctx.fillStyle = '#4b5563'; ctx.fillRect(b.x - 4, b.y + b.height, b.width + 8, 4);
+                if (b.activated) { ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 15; ctx.fillRect(b.x, by, b.width, bh); ctx.shadowBlur = 0; }
+                // Door
+                if (dr.openProgress < 1) {
+                    const so = dr.height * dr.openProgress;
+                    ctx.fillStyle = dr.open ? '#4ade80' : '#6b7280';
+                    ctx.fillRect(dr.x, dr.y - so, dr.width, dr.height);
+                }
+                ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 2;
+                ctx.strokeRect(dr.x - 4, dr.y - 4, dr.width + 8, dr.height + 8);
+                if (dr.open && dr.openProgress >= 0.9) {
+                    const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.5;
+                    ctx.fillStyle = `rgba(74,222,128,${pulse})`; ctx.fillRect(dr.x - 8, dr.y, dr.width + 16, dr.height);
+                    ctx.fillStyle = '#fff'; ctx.font = '24px Arial'; ctx.textAlign = 'center';
+                    ctx.fillText('→', dr.x + dr.width / 2, dr.y + dr.height / 2 + 8);
+                }
+                // Player (slightly tilted when sliding)
+                ctx.save();
+                ctx.translate(p.x + p.width / 2, p.y + p.height / 2);
+                const tilt = Math.atan2(p.vx, 20);
+                ctx.rotate(tilt);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.width / 2, -p.height / 2, p.width, p.height);
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(p.vx > 0 ? 8 : -14, -p.height / 2 + 12, 6, 6);
+                ctx.restore();
+            }
         }
     ];
 
