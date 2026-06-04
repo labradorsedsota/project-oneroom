@@ -189,39 +189,59 @@
             if (player.x < 0) player.x = 0;
             if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
-            // Button collision - must land from above
+            // Button collision - solid obstacle, must jump onto it
             const playerBottom = player.y + player.height;
-            const playerCenterX = player.x + player.width / 2;
+            const playerTop = player.y;
+            const playerRight = player.x + player.width;
+            const playerLeft = player.x;
             const buttonTop = button.y;
+            const buttonBottom = button.y + button.height;
             const buttonLeft = button.x;
             const buttonRight = button.x + button.width;
             
-            // Check: player is horizontally over the button AND falling onto it
-            const isOverButton = playerCenterX > buttonLeft && playerCenterX < buttonRight;
-            const isLandingOnButton = isOverButton && 
-                                       playerBottom >= buttonTop && 
-                                       playerBottom <= buttonTop + 12 && 
-                                       player.vy >= 0; // must be falling
+            // Check overlap
+            const overlapX = playerRight > buttonLeft && playerLeft < buttonRight;
+            const overlapY = playerBottom > buttonTop && playerTop < buttonBottom;
             
-            if (isLandingOnButton) {
-                if (!button.activated) {
-                    button.pressed = true;
-                    button.activated = true;
-                    door.open = true;
-                    // Snap player onto button
-                    player.y = buttonTop - player.height;
-                    player.vy = 0;
-                    player.onGround = true;
-                    console.log('Button activated! Door opening...');
+            if (overlapX && overlapY) {
+                // Determine collision direction
+                const overlapFromLeft = playerRight - buttonLeft;
+                const overlapFromRight = buttonRight - playerLeft;
+                const overlapFromTop = playerBottom - buttonTop;
+                const overlapFromBottom = buttonBottom - playerTop;
+                
+                const minOverlapX = Math.min(overlapFromLeft, overlapFromRight);
+                const minOverlapY = Math.min(overlapFromTop, overlapFromBottom);
+                
+                if (minOverlapY < minOverlapX) {
+                    // Vertical collision
+                    if (overlapFromTop < overlapFromBottom && player.vy >= 0) {
+                        // Landing on top of button
+                        player.y = buttonTop - player.height;
+                        player.vy = 0;
+                        player.onGround = true;
+                        button.pressed = true;
+                        if (!button.activated) {
+                            button.activated = true;
+                            door.open = true;
+                            console.log('Button activated! Door opening...');
+                        }
+                    } else if (overlapFromBottom < overlapFromTop) {
+                        // Hit from below
+                        player.y = buttonBottom;
+                        player.vy = 0;
+                    }
                 } else {
-                    // Already activated, just stand on it
-                    player.y = buttonTop - player.height;
-                    player.vy = 0;
-                    player.onGround = true;
-                    button.pressed = true;
+                    // Horizontal collision - block movement
+                    if (overlapFromLeft < overlapFromRight) {
+                        player.x = buttonLeft - player.width;
+                    } else {
+                        player.x = buttonRight;
+                    }
+                    player.vx = 0;
                 }
             } else {
-                button.pressed = button.activated; // keep pressed look if activated
+                button.pressed = button.activated;
             }
 
             // Door animation
