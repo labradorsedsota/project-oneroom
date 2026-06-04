@@ -308,11 +308,14 @@
                 ctx.shadowBlur = 0;
             }
 
-            // Door
-            const doorVisibleHeight = door.height * (1 - door.openProgress);
-            const doorDrawY = door.y + (door.height - doorVisibleHeight);
-            ctx.fillStyle = door.open ? door.openColor : door.color;
-            ctx.fillRect(door.x, doorDrawY, door.width, doorVisibleHeight);
+            // Door - fade out in place
+            if (door.openProgress < 1) {
+                const alpha = 1 - door.openProgress;
+                ctx.fillStyle = door.open 
+                    ? `rgba(74, 222, 128, ${alpha})` 
+                    : `rgba(107, 114, 128, ${alpha})`;
+                ctx.fillRect(door.x, door.y, door.width, door.height);
+            }
 
             // Goal trigger (subtle indicator)
             if (door.openProgress >= 0.9) {
