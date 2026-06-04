@@ -294,28 +294,36 @@
             ctx.fillStyle = '#374151';
             ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
 
-            // Button
+            // Button - flat pedal style
             ctx.fillStyle = button.activated ? button.activeColor : button.color;
             const buttonY = button.pressed ? button.y + 4 : button.y;
             const buttonH = button.pressed ? button.height - 4 : button.height;
             ctx.fillRect(button.x, buttonY, button.width, buttonH);
             
+            // Button base/pedestal
+            ctx.fillStyle = '#4b5563';
+            ctx.fillRect(button.x - 4, button.y + button.height, button.width + 8, 4);
+            
             // Button glow when activated
             if (button.activated) {
                 ctx.shadowColor = button.activeColor;
-                ctx.shadowBlur = 10;
+                ctx.shadowBlur = 15;
+                ctx.fillStyle = button.activeColor;
                 ctx.fillRect(button.x, buttonY, button.width, buttonH);
                 ctx.shadowBlur = 0;
             }
 
-            // Door - fade out in place
+            // Door - slides up to open
             if (door.openProgress < 1) {
-                const alpha = 1 - door.openProgress;
-                ctx.fillStyle = door.open 
-                    ? `rgba(74, 222, 128, ${alpha})` 
-                    : `rgba(107, 114, 128, ${alpha})`;
-                ctx.fillRect(door.x, door.y, door.width, door.height);
+                const slideOffset = door.height * door.openProgress;
+                ctx.fillStyle = door.open ? door.openColor : door.color;
+                ctx.fillRect(door.x, door.y - slideOffset, door.width, door.height);
             }
+            
+            // Door frame (always visible)
+            ctx.strokeStyle = '#9ca3af';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(door.x - 4, door.y - 4, door.width + 8, door.height + 8);
 
             // Goal trigger (subtle indicator)
             if (door.openProgress >= 0.9) {
