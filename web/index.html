@@ -1092,23 +1092,17 @@
                     return pt.life > 0;
                 });
 
-                // Button collision
-                const pB = p.y + p.height, pT = p.y, pR = p.x + p.width, pL = p.x;
-                const bT = b.y, bB = b.y + b.height, bL = b.x, bR = b.x + b.width;
-                const ox = pR > bL && pL < bR, oy = pB > bT && pT < bB;
-                if (ox && oy) {
-                    const oL = pR - bL, oR = bR - pL, oT = pB - bT, oB = bB - pT;
-                    const mx = Math.min(oL, oR), my = Math.min(oT, oB);
-                    if (my < mx) {
-                        if (oT < oB && p.vy >= 0) {
-                            p.y = bT - p.height; p.vy = 0; p.onGround = true; b.pressed = true;
-                            if (!b.activated) { b.activated = true; dr.open = true; }
-                        } else if (oB < oT) { p.y = bB; p.vy = 0; }
-                    } else {
-                        if (oL < oR) { p.x = bL - p.width; p.vx = -p.vx * 0.5; }
-                        else { p.x = bR; p.vx = -p.vx * 0.5; }
-                    }
-                } else { b.pressed = b.activated; }
+                // Button trigger zone (not solid - activate when stopped on it)
+                const pR = p.x + p.width, pL = p.x;
+                const bL = b.x, bR = b.x + b.width;
+                const onButton = pR > bL && pL < bR && p.onGround;
+                const stopped = Math.abs(p.vx) < 0.5;
+                if (onButton && stopped) {
+                    b.pressed = true;
+                    if (!b.activated) { b.activated = true; dr.open = true; }
+                } else {
+                    b.pressed = b.activated;
+                }
 
                 // Door
                 if (dr.open && dr.openProgress < 1) { dr.openProgress += 0.02; if (dr.openProgress > 1) dr.openProgress = 1; }
