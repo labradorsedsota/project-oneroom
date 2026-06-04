@@ -997,7 +997,7 @@
                     ctx.fillRect(dr.x, dr.y, dr.width, dr.height - so);
                 }
                 ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 2;
-                ctx.strokeRect(dr.x - 4, dr.y - 4, dr.width + 8, dr.height + 8);
+                ctx.strokeRect(dr.x - 4, dr.y, dr.width + 8, dr.height + 4);
                 if (dr.open && dr.openProgress >= 0.9) {
                     const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.5;
                     ctx.fillStyle = `rgba(74,222,128,${pulse})`; ctx.fillRect(dr.x - 8, dr.y, dr.width + 16, dr.height);
@@ -1012,7 +1012,8 @@
                 ctx.fillStyle = p.color;
                 ctx.fillRect(-p.width / 2, -p.height / 2, p.width, p.height);
                 ctx.fillStyle = '#fff';
-                ctx.fillRect(p.vx > 0 ? 8 : -14, -p.height / 2 + 12, 6, 6);
+                const eyeX = p.vx > 0 ? 8 : -14;
+                ctx.fillRect(eyeX, -p.height / 2 + 12, 6, 6);
                 ctx.restore();
             }
         }
