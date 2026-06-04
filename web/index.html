@@ -272,9 +272,9 @@
                 }
             }
 
-            // Goal collision
+            // Goal collision - player must reach the door position after it opens
             if (!goal.triggered && door.openProgress >= 0.9) {
-                const goalRect = { x: goal.x, y: goal.y, width: goal.width, height: goal.height };
+                const goalRect = { x: door.x - 16, y: door.y, width: door.width + 32, height: door.height };
                 if (rectCollision(playerRect, goalRect)) {
                     goal.triggered = true;
                     gameState = 'complete';
@@ -325,10 +325,18 @@
             ctx.lineWidth = 2;
             ctx.strokeRect(door.x - 4, door.y - 4, door.width + 8, door.height + 8);
 
-            // Goal trigger (subtle indicator)
+            // Goal trigger - glowing exit zone at door position
             if (door.openProgress >= 0.9) {
-                ctx.fillStyle = 'rgba(74, 222, 128, 0.2)';
-                ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
+                // Pulsing glow effect
+                const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.5;
+                ctx.fillStyle = `rgba(74, 222, 128, ${pulse})`;
+                ctx.fillRect(door.x - 8, door.y, door.width + 16, door.height);
+                
+                // Exit arrow
+                ctx.fillStyle = '#fff';
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('→', door.x + door.width / 2, door.y + door.height / 2 + 8);
             }
 
             // Player
