@@ -536,37 +536,27 @@
             },
             draw(d) {
                 const p = d.player, dr = d.door, sb = d.sceneButton, mb = d.mouseButton;
-                // Scene button (inactive, just an obstacle)
-                ctx.fillStyle = '#6b7280';
+                // Scene button - looks identical to L1/L2
+                ctx.fillStyle = '#fbbf24';
                 ctx.fillRect(sb.x, sb.y, sb.width, sb.height);
                 ctx.fillStyle = '#4b5563'; ctx.fillRect(sb.x - 4, sb.y + sb.height, sb.width + 8, 4);
-                // "X" mark on scene button to hint it's useless
-                ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 2;
-                ctx.beginPath(); ctx.moveTo(sb.x + 12, sb.y + 3); ctx.lineTo(sb.x + 36, sb.y + 13); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(sb.x + 36, sb.y + 3); ctx.lineTo(sb.x + 12, sb.y + 13); ctx.stroke();
 
-                // Mouse button - big red circle
+                // Mouse button - subtle floating circle
                 const scale = 1 - mb.pressAnim * 0.3;
                 ctx.save();
                 ctx.translate(mb.x, mb.y);
                 ctx.scale(scale, scale);
-                // Glow
-                if (mb.hover) {
-                    ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 20;
-                }
+                // Outer ring
                 ctx.beginPath();
                 ctx.arc(0, 0, mb.radius, 0, Math.PI * 2);
-                ctx.fillStyle = mb.clicked ? '#4ade80' : (mb.hover ? '#f87171' : '#ef4444');
-                ctx.fill();
-                ctx.shadowBlur = 0;
-                // Inner circle
+                ctx.strokeStyle = mb.clicked ? '#4ade80' : (mb.hover ? 'rgba(239,68,68,0.8)' : 'rgba(239,68,68,0.3)');
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                // Inner dot
                 ctx.beginPath();
-                ctx.arc(0, 0, mb.radius * 0.6, 0, Math.PI * 2);
-                ctx.fillStyle = mb.clicked ? '#22c55e' : '#dc2626';
+                ctx.arc(0, 0, 6, 0, Math.PI * 2);
+                ctx.fillStyle = mb.clicked ? '#4ade80' : (mb.hover ? '#ef4444' : 'rgba(239,68,68,0.5)');
                 ctx.fill();
-                // Label
-                ctx.fillStyle = '#fff'; ctx.font = '14px Courier New'; ctx.textAlign = 'center';
-                ctx.fillText('CLICK', 0, 5);
                 ctx.restore();
 
                 // Door
