@@ -1,0 +1,48 @@
+[gd_scene load_steps=6 format=3 uid="uid://l1_button"]
+
+[ext_resource type="PackedScene" uid="uid://player_scene" path="res://scenes/player/player.tscn" id="1"]
+[ext_resource type="PackedScene" uid="uid://button_scene" path="res://scenes/components/button.tscn" id="2"]
+[ext_resource type="PackedScene" uid="uid://door_scene" path="res://scenes/components/door.tscn" id="3"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
+size = Vector2(800, 32)
+
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_ground"]
+size = Vector2(800, 32)
+
+[node name="L1_Button" type="Node2D"]
+
+[node name="Ground" type="StaticBody2D" parent="."]
+position = Vector2(640, 500)
+collision_layer = 2
+collision_mask = 0
+
+[node name="Sprite2D" type="Sprite2D" parent="Ground"]
+texture = SubResource("PlaceholderTexture2D_ground")
+modulate = Color(0.3, 0.3, 0.3, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
+shape = SubResource("RectangleShape2D_ground")
+
+[node name="Player" parent="." instance=ExtResource("1")]
+position = Vector2(200, 450)
+
+[node name="Button" parent="." instance=ExtResource("2")]
+position = Vector2(640, 476)
+
+[node name="Door" parent="." instance=ExtResource("3")]
+position = Vector2(900, 436)
+
+[node name="LevelScript" type="Node" parent="."]
+
+[node name="HintLabel" type="Label" parent="."]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -200.0
+offset_top = 20.0
+offset_right = 200.0
+offset_bottom = 60.0
+text = "Under Pressure"
+horizontal_alignment = 1
+vertical_alignment = 1
