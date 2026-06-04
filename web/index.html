@@ -1232,6 +1232,22 @@
                         }
                         if (bx.x < 0) bx.x = 0;
                         if (bx.x + bx.width > canvas.width) bx.x = canvas.width - bx.width;
+
+                        // Box-door collision (box can't pass through door)
+                        const bxR = bx.x + bx.width, bxL = bx.x;
+                        const drL = dr.x, drR = dr.x + dr.width;
+                        const bxB = bx.y + bx.height, bxT = bx.y;
+                        const drT = dr.y, drB = dr.y + dr.height;
+                        if (bxR > drL && bxL < drR && bxB > drT && bxT < drB) {
+                            // Box overlaps with door, push it back
+                            const oL = bxR - drL, oR = drR - bxL;
+                            if (oL < oR) {
+                                bx.x = drL - bx.width;
+                            } else {
+                                bx.x = drR;
+                            }
+                            bx.vx = 0;
+                        }
                     }
 
                     // Player-box collision
