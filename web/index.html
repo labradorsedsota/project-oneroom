@@ -1564,6 +1564,236 @@
                 ctx.fillRect(p.vx > 0 ? p.x + 20 : p.x + 8, p.y + 12, 6, 6);
                 ctx.shadowBlur = 0;
             }
+        },
+
+        // --- L11: The UI ---
+        {
+            name: 'L11: The UI',
+            hint: 'Look Closer',
+            controls: 'A/D: Move | Space: Jump | Mouse: ??? | R: Restart',
+            init() {
+                return {
+                    player: { x: 200, y: GROUND_Y - 48, vx: 0, vy: 0, width: 32, height: 48, speed: 4, jumpForce: -11, onGround: false, color: '#3b82f6' },
+                    sceneButton: { x: 616, y: GROUND_Y - 16, width: 48, height: 16, pressed: false },
+                    door: { x: 892, y: GROUND_Y - 96, width: 16, height: 96, open: false, openProgress: 0 },
+                    hud: {
+                        gearIcon: { x: 40, y: 30, size: 28, clicked: false, hover: false },
+                        scoreText: { x: 1280 - 120, y: 35, text: 'Score: 0' },
+                        levelText: { x: 1280 / 2, y: 35, text: 'L11' },
+                        barBg: { x: 1280 - 220, y: 50, w: 100, h: 8 },
+                        shattering: false,
+                        shatterProgress: 0,
+                        shards: [],
+                        shattered: false
+                    },
+                    mouseX: 0, mouseY: 0,
+                    attemptCount: 0,
+                    hintTimer: 0
+                };
+            },
+            update(d) {
+                const p = d.player, sb = d.sceneButton, dr = d.door, hud = d.hud;
+                if (keys['a'] || keys['arrowleft']) p.vx = -p.speed;
+                else if (keys['d'] || keys['arrowright']) p.vx = p.speed;
+                else { p.vx *= 0.8; if (Math.abs(p.vx) < 0.1) p.vx = 0; }
+                if ((keys[' '] || keys['w']) && p.onGround) { p.vy = p.jumpForce; p.onGround = false; }
+                p.vy += GRAVITY; p.x += p.vx; p.y += p.vy;
+                if (p.y + p.height >= GROUND_Y) { p.y = GROUND_Y - p.height; p.vy = 0; p.onGround = true; }
+                if (p.x < 0) p.x = 0;
+                if (p.x + p.width > canvas.width) p.x = canvas.width - p.width;
+
+                // Scene button - solid obstacle, does NOTHING
+                const pB = p.y + p.height, pT = p.y, pR = p.x + p.width, pL = p.x;
+                const bT = sb.y, bB = sb.y + sb.height, bL = sb.x, bR = sb.x + sb.width;
+                const ox = pR > bL && pL < bR, oy = pB > bT && pT < bB;
+                if (ox && oy) {
+                    const oL = pR - bL, oR = bR - pL, oT = pB - bT, oB = bB - pT;
+                    const mx = Math.min(oL, oR), my = Math.min(oT, oB);
+                    if (my < mx) {
+                        if (oT < oB && p.vy >= 0) {
+                            p.y = bT - p.height; p.vy = 0; p.onGround = true;
+                            sb.pressed = true;
+                            d.attemptCount++;
+                        } else if (oB < oT) { p.y = bB; p.vy = 0; }
+                    } else {
+                        if (oL < oR) p.x = bL - p.width; else p.x = bR;
+                        p.vx = 0;
+                    }
+                } else { sb.pressed = false; }
+
+                // HUD gear icon hover
+                if (!hud.shattered && !hud.shattering) {
+                    const rect = canvas.getBoundingClientRect();
+                    const scaleX = canvas.width / rect.width;
+                    const scaleY = canvas.height / rect.height;
+                    const mx2 = (d.mouseX - rect.left) * scaleX;
+                    const my2 = (d.mouseY - rect.top) * scaleY;
+                    const gi = hud.gearIcon;
+                    hud.gearIcon.hover = Math.abs(mx2 - gi.x) < gi.size && Math.abs(my2 - gi.y) < gi.size;
+                }
+
+                // Shatter animation
+                if (hud.shattering && !hud.shattered) {
+                    hud.shatterProgress += 0.025;
+                    if (hud.shatterProgress >= 1) {
+                        hud.shattered = true;
+                        dr.open = true;
+                    }
+                    hud.shards.forEach(s => {
+                        s.x += s.vx; s.y += s.vy; s.vy += 0.3;
+                        s.rotation += s.rotSpeed; s.alpha -= 0.015;
+                    });
+                }
+
+                if (d.attemptCount > 2 && !hud.shattered) d.hintTimer += 1;
+
+                // Door
+                if (dr.open && dr.openProgress < 1) { dr.openProgress += 0.02; if (dr.openProgress > 1) dr.openProgress = 1; }
+                const pr = { x: p.x, y: p.y, width: p.width, height: p.height };
+                if (dr.openProgress < 0.9) {
+                    const dRect = { x: dr.x, y: dr.y + dr.height * dr.openProgress, width: dr.width, height: dr.height * (1 - dr.openProgress) };
+                    if (rectCollision(pr, dRect)) {
+                        if (p.vx > 0) p.x = dRect.x - p.width; else if (p.vx < 0) p.x = dRect.x + dRect.width;
+                        p.vx = 0;
+                    }
+                }
+                if (dr.open && dr.openProgress >= 0.9) {
+                    if (rectCollision(pr, { x: dr.x - 16, y: dr.y, width: dr.width + 32, height: dr.height })) return 'complete';
+                }
+                return null;
+            },
+            draw(d) {
+                const p = d.player, sb = d.sceneButton, dr = d.door, hud = d.hud;
+
+                // Scene button - looks normal but broken (tiny cracks)
+                ctx.fillStyle = '#fbbf24';
+                const by = sb.pressed ? sb.y + 4 : sb.y, bh = sb.pressed ? sb.height - 4 : sb.height;
+                ctx.fillRect(sb.x, by, sb.width, bh);
+                ctx.fillStyle = '#4b5563'; ctx.fillRect(sb.x - 4, sb.y + sb.height, sb.width + 8, 4);
+                ctx.strokeStyle = 'rgba(100,100,100,0.4)'; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(sb.x + 10, sb.y + 2); ctx.lineTo(sb.x + 20, sb.y + sb.height - 2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(sb.x + 30, sb.y + 3); ctx.lineTo(sb.x + 38, sb.y + sb.height - 1); ctx.stroke();
+
+                // Door
+                if (dr.openProgress < 1) {
+                    const so = dr.height * dr.openProgress;
+                    ctx.fillStyle = dr.open ? '#4ade80' : '#6b7280';
+                    ctx.fillRect(dr.x, dr.y - so, dr.width, dr.height);
+                }
+                ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 2;
+                ctx.strokeRect(dr.x - 4, dr.y - 4, dr.width + 8, dr.height + 8);
+                if (dr.open && dr.openProgress >= 0.9) {
+                    const pulse = Math.sin(Date.now() / 200) * 0.2 + 0.5;
+                    ctx.fillStyle = `rgba(74,222,128,${pulse})`; ctx.fillRect(dr.x - 8, dr.y, dr.width + 16, dr.height);
+                    ctx.fillStyle = '#fff'; ctx.font = '24px Arial'; ctx.textAlign = 'center';
+                    ctx.fillText('→', dr.x + dr.width / 2, dr.y + dr.height / 2 + 8);
+                }
+
+                // Player
+                ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.width, p.height);
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(p.vx > 0 ? p.x + 20 : p.x + 8, p.y + 12, 6, 6);
+
+                // === HUD LAYER ===
+                if (!hud.shattered) {
+                    const hudAlpha = hud.shattering ? Math.max(0, 1 - hud.shatterProgress) : 1;
+                    ctx.save();
+                    ctx.globalAlpha = hudAlpha;
+                    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                    ctx.fillRect(0, 0, canvas.width, 60);
+                    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                    ctx.fillRect(0, 58, canvas.width, 2);
+
+                    const gi = hud.gearIcon;
+                    if (!hud.shattering) {
+                        ctx.font = `${gi.size}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                        ctx.fillStyle = gi.hover ? '#ffd700' : '#888';
+                        ctx.fillText('⚙️', gi.x, gi.y);
+                        if (gi.hover) {
+                            ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 10;
+                            ctx.fillText('⚙️', gi.x, gi.y);
+                            ctx.shadowBlur = 0;
+                        }
+                    }
+
+                    ctx.font = '16px Courier New'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#888';
+                    ctx.fillText(hud.scoreText.text, hud.scoreText.x, hud.scoreText.y);
+                    ctx.textAlign = 'center';
+                    ctx.fillText(hud.levelText.text, hud.levelText.x, hud.levelText.y);
+                    ctx.fillStyle = '#374151';
+                    ctx.fillRect(hud.barBg.x, hud.barBg.y, hud.barBg.w, hud.barBg.h);
+                    ctx.fillStyle = '#4ade80';
+                    ctx.fillRect(hud.barBg.x, hud.barBg.y, hud.barBg.w * 0.7, hud.barBg.h);
+                    ctx.fillStyle = '#555';
+                    for (let i = 0; i < 5; i++) {
+                        ctx.beginPath(); ctx.arc(80 + i * 20, 50, 3, 0, Math.PI * 2); ctx.fill();
+                    }
+                    ctx.restore();
+
+                    if (hud.shattering) {
+                        hud.shards.forEach(s => {
+                            if (s.alpha <= 0) return;
+                            ctx.save();
+                            ctx.globalAlpha = Math.max(0, s.alpha);
+                            ctx.translate(s.x, s.y);
+                            ctx.rotate(s.rotation);
+                            ctx.fillStyle = s.color;
+                            ctx.beginPath();
+                            ctx.moveTo(s.points[0].x, s.points[0].y);
+                            for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x, s.points[i].y);
+                            ctx.closePath(); ctx.fill();
+                            ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1; ctx.stroke();
+                            ctx.restore();
+                        });
+                    }
+                }
+
+                if (d.attemptCount > 3 && !hud.shattered && !hud.shattering) {
+                    const hintAlpha = Math.min((d.hintTimer / 120), 0.4);
+                    ctx.fillStyle = `rgba(255,255,255,${hintAlpha})`;
+                    ctx.font = '14px Courier New'; ctx.textAlign = 'center';
+                    ctx.fillText('...maybe the answer isn\'t in the room?', canvas.width / 2, GROUND_Y + 40);
+                }
+            },
+            onMouseMove(e) { levelData.mouseX = e.clientX; levelData.mouseY = e.clientY; },
+            onClick(e) {
+                const hud = levelData.hud;
+                if (hud.shattered || hud.shattering) return;
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const mx = (e.clientX - rect.left) * scaleX;
+                const my = (e.clientY - rect.top) * scaleY;
+                const gi = hud.gearIcon;
+                if (Math.abs(mx - gi.x) < gi.size && Math.abs(my - gi.y) < gi.size) {
+                    hud.shattering = true;
+                    hud.gearIcon.clicked = true;
+                    const shardColors = ['rgba(100,100,120,0.8)', 'rgba(80,80,100,0.7)', 'rgba(120,120,140,0.6)', 'rgba(60,60,80,0.8)'];
+                    for (let i = 0; i < 30; i++) {
+                        const sx = Math.random() * canvas.width;
+                        const sy = Math.random() * 60;
+                        const size = 8 + Math.random() * 20;
+                        const points = [];
+                        const numPoints = 3 + Math.floor(Math.random() * 3);
+                        for (let j = 0; j < numPoints; j++) {
+                            const angle = (j / numPoints) * Math.PI * 2;
+                            const r = size * (0.5 + Math.random() * 0.5);
+                            points.push({ x: Math.cos(angle) * r, y: Math.sin(angle) * r });
+                        }
+                        hud.shards.push({
+                            x: sx, y: sy,
+                            vx: (Math.random() - 0.5) * 8,
+                            vy: -2 + Math.random() * 4,
+                            rotation: Math.random() * Math.PI * 2,
+                            rotSpeed: (Math.random() - 0.5) * 0.2,
+                            alpha: 1,
+                            color: shardColors[Math.floor(Math.random() * shardColors.length)],
+                            points: points
+                        });
+                    }
+                }
+            }
         }
     ];
 
