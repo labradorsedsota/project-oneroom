@@ -1856,21 +1856,41 @@
             draw(d) {
                 const p = d.player, w = d.wall, dr = d.door;
 
-                // Wall - tall, imposing, from ceiling to ground
-                const wallGrad = ctx.createLinearGradient(w.x, 0, w.x + w.width, 0);
-                wallGrad.addColorStop(0, '#4b5563');
-                wallGrad.addColorStop(0.5, '#6b7280');
-                wallGrad.addColorStop(1, '#4b5563');
-                ctx.fillStyle = wallGrad;
+                // Wall - brick texture
+                const brickH = 20, brickW = 40;
+                ctx.fillStyle = '#8b4513'; // brown base
                 ctx.fillRect(w.x, w.y, w.width, w.height);
-                // Wall texture lines
-                ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-                ctx.lineWidth = 1;
-                for (let y = 0; y < w.height; y += 20) {
-                    ctx.beginPath(); ctx.moveTo(w.x, y); ctx.lineTo(w.x + w.width, y); ctx.stroke();
+                
+                // Draw bricks
+                for (let row = 0; row < Math.ceil(w.height / brickH); row++) {
+                    const offset = (row % 2) * (brickW / 2); // stagger every other row
+                    for (let col = -1; col < Math.ceil(w.width / brickW) + 1; col++) {
+                        const bx = w.x + col * brickW + offset;
+                        const by = w.y + row * brickH;
+                        
+                        // Brick face (slightly lighter brown)
+                        ctx.fillStyle = '#a0522d';
+                        ctx.fillRect(bx + 1, by + 1, brickW - 2, brickH - 2);
+                        
+                        // Brick highlight (top-left edge)
+                        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                        ctx.fillRect(bx + 1, by + 1, brickW - 2, 2);
+                        ctx.fillRect(bx + 1, by + 1, 2, brickH - 2);
+                    }
                 }
+                
+                // Mortar lines (dark gaps between bricks)
+                ctx.strokeStyle = '#3e1f0f';
+                ctx.lineWidth = 2;
+                for (let row = 0; row <= Math.ceil(w.height / brickH); row++) {
+                    ctx.beginPath();
+                    ctx.moveTo(w.x, w.y + row * brickH);
+                    ctx.lineTo(w.x + w.width, w.y + row * brickH);
+                    ctx.stroke();
+                }
+                
                 // Wall shadow
-                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillStyle = 'rgba(0,0,0,0.4)';
                 ctx.fillRect(w.x + w.width, w.y, 8, w.height);
                 ctx.fillRect(w.x - 8, w.y, 8, w.height);
 
