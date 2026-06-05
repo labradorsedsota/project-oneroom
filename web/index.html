@@ -1699,21 +1699,36 @@
                     const hudAlpha = hud.shattering ? Math.max(0, 1 - hud.shatterProgress) : 1;
                     ctx.save();
                     ctx.globalAlpha = hudAlpha;
-                    // No background bar - HUD floats on game canvas
-                    ctx.fillStyle = 'rgba(255,255,255,0.05)';
-                    ctx.fillRect(0, 58, canvas.width, 1);
 
-                    // Only the gear icon - minimal, subtle
+                    // Only a tiny hand-drawn gear - very subtle
                     const gi = hud.gearIcon;
                     if (!hud.shattering) {
-                        ctx.font = `${gi.size}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                        ctx.fillStyle = gi.hover ? '#ffd700' : '#666';
-                        ctx.fillText('⚙️', gi.x, gi.y);
-                        if (gi.hover) {
-                            ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 8;
-                            ctx.fillText('⚙️', gi.x, gi.y);
-                            ctx.shadowBlur = 0;
+                        const cx = gi.x, cy = gi.y, r = 8;
+                        ctx.save();
+                        ctx.translate(cx, cy);
+                        // Slow idle rotation
+                        ctx.rotate(Date.now() / 8000);
+                        ctx.strokeStyle = gi.hover ? '#ffd700' : '#3a3a4a';
+                        ctx.lineWidth = 1.5;
+                        ctx.globalAlpha = gi.hover ? 0.9 : 0.35;
+                        // Inner circle
+                        ctx.beginPath();
+                        ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2);
+                        ctx.stroke();
+                        // Teeth (6 small rectangles around)
+                        for (let i = 0; i < 6; i++) {
+                            const angle = (i / 6) * Math.PI * 2;
+                            ctx.save();
+                            ctx.rotate(angle);
+                            ctx.fillStyle = gi.hover ? '#ffd700' : '#3a3a4a';
+                            ctx.fillRect(-1.5, r * 0.55, 3, 4);
+                            ctx.restore();
                         }
+                        // Outer ring
+                        ctx.beginPath();
+                        ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.restore();
                     }
                     ctx.restore();
 
