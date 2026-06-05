@@ -1699,35 +1699,21 @@
                     const hudAlpha = hud.shattering ? Math.max(0, 1 - hud.shatterProgress) : 1;
                     ctx.save();
                     ctx.globalAlpha = hudAlpha;
-                    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-                    ctx.fillRect(0, 0, canvas.width, 60);
-                    ctx.fillStyle = 'rgba(255,255,255,0.1)';
-                    ctx.fillRect(0, 58, canvas.width, 2);
+                    // No background bar - HUD floats on game canvas
+                    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+                    ctx.fillRect(0, 58, canvas.width, 1);
 
+                    // Only the gear icon - minimal, subtle
                     const gi = hud.gearIcon;
                     if (!hud.shattering) {
                         ctx.font = `${gi.size}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                        ctx.fillStyle = gi.hover ? '#ffd700' : '#888';
+                        ctx.fillStyle = gi.hover ? '#ffd700' : '#666';
                         ctx.fillText('⚙️', gi.x, gi.y);
                         if (gi.hover) {
-                            ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 10;
+                            ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 8;
                             ctx.fillText('⚙️', gi.x, gi.y);
                             ctx.shadowBlur = 0;
                         }
-                    }
-
-                    ctx.font = '16px Courier New'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-                    ctx.fillStyle = '#888';
-                    ctx.fillText(hud.scoreText.text, hud.scoreText.x, hud.scoreText.y);
-                    ctx.textAlign = 'center';
-                    ctx.fillText(hud.levelText.text, hud.levelText.x, hud.levelText.y);
-                    ctx.fillStyle = '#374151';
-                    ctx.fillRect(hud.barBg.x, hud.barBg.y, hud.barBg.w, hud.barBg.h);
-                    ctx.fillStyle = '#4ade80';
-                    ctx.fillRect(hud.barBg.x, hud.barBg.y, hud.barBg.w * 0.7, hud.barBg.h);
-                    ctx.fillStyle = '#555';
-                    for (let i = 0; i < 5; i++) {
-                        ctx.beginPath(); ctx.arc(80 + i * 20, 50, 3, 0, Math.PI * 2); ctx.fill();
                     }
                     ctx.restore();
 
